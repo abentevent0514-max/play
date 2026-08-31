@@ -1,0 +1,1944 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ギルティ 〜罪と罰と幸福〜</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  /* ===== 世界観トークン: 夜の御堂 ===== */
+  :root{
+    --ink:#141020;          /* 地: 夜紺 */
+    --ink2:#1d1830;
+    --panel:#221c38;
+    --line:#3a3156;
+    --gold:#d9a441;         /* 仏側 */
+    --gold-soft:#f0d9a0;
+    --lotus:#f0e6cd;
+    --oni:#d4405a;          /* 悪魔側 */
+    --oni-soft:#f08a9b;
+    --onideep:#6d2a8e;
+    --text:#ece5d3;
+    --text-dim:#a89f8c;
+    --ok:#7fb069;
+    --serif:"Hiragino Mincho ProN","Yu Mincho","BIZ UDMincho","Noto Serif JP",serif;
+    --sans:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;
+  }
+  html{box-sizing:border-box}
+  *,*::before,*::after{box-sizing:inherit}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(217,164,65,.08), transparent 60%),
+      radial-gradient(1200px 600px at 80% -10%, rgba(212,64,90,.08), transparent 60%),
+      var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    line-height:1.6;
+  }
+  button{font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* ===== ヘッダー ===== */
+  header{
+    display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    padding:20px 24px 8px;max-width:1100px;margin:0 auto;
+  }
+  h1{
+    font-family:var(--serif);font-weight:600;font-size:clamp(24px,4vw,34px);
+    margin:0;letter-spacing:.12em;
+    background:linear-gradient(100deg,var(--gold-soft) 0%,var(--gold) 45%,var(--oni-soft) 55%,var(--oni) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .tagline{font-family:var(--serif);color:var(--text-dim);font-size:13px;letter-spacing:.2em}
+  .who{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-dim)}
+  .who b{color:var(--text);font-weight:600}
+  .who button{
+    background:none;border:1px solid var(--line);color:var(--text-dim);
+    border-radius:6px;padding:4px 10px;font-size:12px;
+  }
+  .who button:hover{border-color:var(--text-dim);color:var(--text)}
+
+  main{max-width:1100px;margin:0 auto;padding:12px 24px 48px}
+
+  /* ===== ログイン画面 ===== */
+  .gate{
+    max-width:420px;margin:8vh auto;padding:36px 32px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    text-align:center;
+  }
+  .gate h2{font-family:var(--serif);font-weight:600;letter-spacing:.15em;margin:0 0 6px;font-size:20px}
+  .gate p{color:var(--text-dim);font-size:13px;margin:0 0 22px}
+  .gate .roster{font-size:13px;color:var(--text-dim);margin:0 0 18px}
+  .gate .roster b{color:var(--gold-soft);font-weight:600}
+  .gate form{display:flex;gap:8px}
+  .gate input{
+    flex:1;background:var(--ink2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);padding:10px 14px;font-size:15px;
+  }
+  .gate button[type=submit]{
+    background:linear-gradient(135deg,var(--gold),#b8862e);color:#241a05;border:none;
+    border-radius:8px;padding:10px 20px;font-size:14px;font-weight:700;letter-spacing:.1em;
+  }
+  .gate .err{color:var(--oni-soft);font-size:13px;min-height:1.5em;margin:12px 0 0}
+  .gate .note{margin-top:20px;font-size:11px;color:var(--text-dim);opacity:.8}
+  .reset-link{
+    margin-top:16px;background:none;border:none;color:var(--text-dim);
+    font-size:11px;text-decoration:underline;opacity:.7;
+  }
+  .reset-link:hover{color:var(--oni-soft);opacity:1}
+
+  /* ===== メイン: 三分割の祭壇 ===== */
+  .altar-grid{
+    display:grid;grid-template-columns:1fr minmax(280px,.9fr) 1fr;gap:18px;align-items:start;
+  }
+  @media (max-width:900px){
+    .altar-grid{grid-template-columns:1fr 1fr}
+    .altar-grid .actions{grid-column:1 / -1;order:-1}
+  }
+  @media (max-width:560px){
+    .altar-grid{grid-template-columns:1fr;gap:14px}
+    main{padding:8px 12px 40px}
+    header{padding:14px 14px 4px;gap:8px}
+    .tagline{display:none}
+    .shrine{padding:14px 12px 16px}
+    .btn-big{padding:18px 14px;font-size:16px}
+    .queue button{padding:10px 16px;font-size:13px}
+    .gate{margin:6vh 4px;padding:28px 20px}
+    .fanfare .card{padding:30px 22px}
+  }
+
+  .shrine{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px 18px 22px;position:relative;overflow:hidden;
+  }
+  .shrine.saint{border-top:3px solid var(--gold)}
+  .shrine.devil{border-top:3px solid var(--oni)}
+  .shrine h2{
+    font-family:var(--serif);font-weight:600;font-size:16px;letter-spacing:.25em;
+    margin:0 0 2px;text-align:center;
+  }
+  .shrine.saint h2{color:var(--gold-soft)}
+  .shrine.devil h2{color:var(--oni-soft)}
+  .shrine .lv{
+    text-align:center;font-family:var(--serif);font-size:13px;letter-spacing:.2em;
+    color:var(--text-dim);margin-bottom:6px;
+  }
+  .shrine .lv b{font-size:22px;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+  .stage{
+    display:block;width:100%;max-width:280px;margin:0 auto;aspect-ratio:7/8;
+    cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  }
+  .poke-hint{text-align:center;font-size:10.5px;color:var(--text-dim);opacity:.6;margin:2px 0 0;letter-spacing:.1em}
+
+  .gauge{margin:14px 4px 0}
+  .gauge .nums{
+    display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);
+    font-variant-numeric:tabular-nums;letter-spacing:.05em;margin-bottom:4px;
+  }
+  .gauge .bar{height:8px;border-radius:4px;background:var(--ink2);overflow:hidden}
+  .gauge .fill{height:100%;border-radius:4px;transition:width .8s cubic-bezier(.2,.9,.3,1)}
+  .saint .fill{background:linear-gradient(90deg,#8a6a24,var(--gold),var(--gold-soft))}
+  .devil .fill{background:linear-gradient(90deg,var(--onideep),var(--oni),var(--oni-soft))}
+  .shrine .event-now{
+    margin:14px 4px 0;font-family:var(--serif);font-size:12.5px;line-height:1.8;
+    color:var(--text-dim);text-align:center;min-height:3.6em;
+    text-wrap:balance;
+  }
+
+  /* ===== 中央: 行動と承認 ===== */
+  .actions{display:flex;flex-direction:column;gap:14px}
+  .declare{display:grid;gap:10px}
+  .btn-big{
+    border:none;border-radius:12px;padding:16px 14px;font-size:15px;font-weight:700;
+    letter-spacing:.08em;color:#fff;position:relative;
+    transition:transform .1s;
+  }
+  .btn-big:active{transform:scale(.97)}
+  .btn-big small{display:block;font-weight:400;font-size:11px;opacity:.85;letter-spacing:.05em;margin-top:2px}
+  .btn-kept{background:linear-gradient(135deg,#c79436,#9a7226);color:#231803}
+  .btn-late{background:linear-gradient(135deg,var(--oni),#8e2a3e)}
+  .btn-big:disabled{opacity:.45;cursor:not-allowed}
+
+  .queue{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .queue h3{
+    font-family:var(--serif);font-size:13px;font-weight:600;letter-spacing:.2em;
+    color:var(--text-dim);margin:0 0 10px;
+  }
+  .queue ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .queue li{
+    background:var(--ink2);border-radius:8px;padding:10px 12px;font-size:13px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .queue .empty{color:var(--text-dim);font-size:12.5px}
+  .queue .req-label{flex:1;min-width:120px}
+  .queue .req-label b{font-weight:600}
+  .tag{font-size:10px;border-radius:4px;padding:2px 6px;letter-spacing:.05em;white-space:nowrap}
+  .tag.kept{background:rgba(217,164,65,.18);color:var(--gold-soft)}
+  .tag.late{background:rgba(212,64,90,.18);color:var(--oni-soft)}
+  .queue button{
+    border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;
+  }
+  .b-approve{background:var(--ok);color:#10250c}
+  .b-reject{background:none;border:1px solid var(--line) !important;color:var(--text-dim)}
+  .b-reject:hover{color:var(--oni-soft);border-color:var(--oni) !important}
+  .wait{color:var(--text-dim);font-size:11px}
+
+  .partner{font-size:12px;color:var(--text-dim);text-align:center;line-height:1.9}
+  .partner b{color:var(--text);font-weight:600}
+  .partner .chip{font-variant-numeric:tabular-nums}
+
+  /* ===== 履歴 ===== */
+  .history{margin-top:26px}
+  .history h3{
+    font-family:var(--serif);font-size:14px;font-weight:600;letter-spacing:.25em;
+    color:var(--text-dim);margin:0 0 10px;
+  }
+  .history ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .history li{
+    font-size:12.5px;color:var(--text-dim);padding:7px 10px;border-radius:6px;
+    display:flex;gap:10px;align-items:baseline;
+  }
+  .history li:nth-child(odd){background:rgba(255,255,255,.025)}
+  .history time{font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap;opacity:.7}
+  .history .h-kept{color:var(--gold-soft)}
+  .history .h-late{color:var(--oni-soft)}
+  .history .h-rej{opacity:.55;text-decoration:line-through}
+
+  /* ===== レベルアップ演出 ===== */
+  .fanfare{
+    position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,7,20,.88);opacity:0;pointer-events:none;transition:opacity .4s;
+  }
+  .fanfare.show{opacity:1;pointer-events:auto}
+  .fanfare .card{
+    text-align:center;padding:40px 36px;max-width:480px;margin:20px;
+    border-radius:16px;border:1px solid var(--line);
+    background:var(--ink2);position:relative;overflow:hidden;
+  }
+  .fanfare.f-saint .card{border-color:var(--gold);box-shadow:0 0 80px rgba(217,164,65,.35)}
+  .fanfare.f-devil .card{border-color:var(--oni);box-shadow:0 0 80px rgba(212,64,90,.35)}
+  .fanfare .kind{font-family:var(--serif);letter-spacing:.4em;font-size:13px;color:var(--text-dim)}
+  .fanfare .lvline{
+    font-family:var(--serif);font-size:clamp(30px,7vw,44px);font-weight:600;letter-spacing:.15em;
+    margin:10px 0 18px;
+  }
+  .fanfare.f-saint .lvline{color:var(--gold-soft);text-shadow:0 0 30px rgba(217,164,65,.6)}
+  .fanfare.f-devil .lvline{color:var(--oni-soft);text-shadow:0 0 30px rgba(212,64,90,.6)}
+  .fanfare .story{font-family:var(--serif);font-size:15px;line-height:2;text-wrap:balance}
+  .fanfare .close{
+    margin-top:26px;background:none;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:8px 26px;font-size:13px;letter-spacing:.2em;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .fanfare.show .card{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+    @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+  }
+
+  /* ===== オープニング ===== */
+  #opening{
+    position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(700px 500px at 25% 85%, rgba(217,164,65,.10), transparent 60%),
+      radial-gradient(700px 500px at 75% 85%, rgba(212,64,90,.10), transparent 60%),
+      #0a0714;
+    transition:opacity .8s ease;cursor:pointer;
+  }
+  #opening.done{opacity:0;pointer-events:none}
+  #openingFx{position:absolute;inset:0;width:100%;height:100%}
+  .op-inner{position:relative;text-align:center;padding:0 24px}
+  .op-line{
+    height:1px;width:0;margin:0 auto 26px;
+    background:linear-gradient(90deg,var(--gold),var(--oni));
+    animation:opLine 1.2s .7s ease forwards;
+  }
+  .op-title{
+    margin:0;font-family:var(--serif);font-weight:600;font-size:clamp(44px,14vw,84px);
+    letter-spacing:.22em;text-indent:.22em;
+    background:linear-gradient(100deg,var(--gold-soft),var(--gold) 45%,var(--oni-soft) 55%,var(--oni));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    opacity:0;filter:blur(10px);transform:scale(1.12);
+    animation:opTitle 1.5s .15s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  .op-sub{
+    font-family:var(--serif);color:var(--text-dim);font-size:clamp(13px,3.6vw,16px);
+    letter-spacing:.14em;line-height:2.2;margin:26px 0 0;
+    opacity:0;animation:opFade 1s 1.5s ease forwards;
+  }
+  .op-skip{
+    margin:48px 0 0;font-size:11px;color:var(--text-dim);letter-spacing:.3em;
+    opacity:0;animation:opPulse 2.2s 2.4s ease-in-out infinite;
+  }
+  @keyframes opTitle{to{opacity:1;filter:blur(0);transform:scale(1)}}
+  @keyframes opLine{to{width:min(300px,70vw)}}
+  @keyframes opFade{to{opacity:1}}
+  @keyframes opPulse{0%,100%{opacity:.25}50%{opacity:.85}}
+  @media (prefers-reduced-motion: reduce){
+    .op-title,.op-line,.op-sub{animation-duration:.01s;animation-delay:0s}
+    .op-skip{animation:none;opacity:.6}
+  }
+
+  .offline{
+    max-width:480px;margin:10vh auto;padding:30px;text-align:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    color:var(--text-dim);font-size:14px;line-height:2;
+  }
+  .hidden{display:none !important}
+</style>
+
+<header>
+  <h1>ギルティ</h1>
+  <span class="tagline">罪と罰と幸福。</span>
+  <div class="who hidden" id="whoBox">
+    <span><b id="whoName"></b> として参拝中</span>
+    <button id="logoutBtn" type="button">ログアウト</button>
+  </div>
+</header>
+
+<main>
+  <!-- 接続不可 -->
+  <div class="offline hidden" id="offline">
+    サーバーに接続できませんでした。<br>
+    通信環境を確認して、しばらくしてから開き直してください。
+  </div>
+
+  <!-- ログイン / 登録 -->
+  <div class="gate hidden" id="gate">
+    <h2>入 帳</h2>
+    <p>初めての方は名前を入力すると登録されます（2名まで）。<br>2回目からは同じ名前でログインできます。</p>
+    <p class="roster" id="roster"></p>
+    <form id="gateForm">
+      <input id="gateName" maxlength="16" placeholder="あなたの名前" autocomplete="off" aria-label="アカウント名">
+      <button type="submit">入る</button>
+    </form>
+    <p class="err" id="gateErr"></p>
+    <p class="note">遅刻と誠実の因果は、すべてこの帳に記される。</p>
+    <button type="button" class="reset-link" id="resetBtn">記録をすべて消して最初から</button>
+  </div>
+
+  <!-- 本殿 -->
+  <div class="hidden" id="app">
+    <div class="altar-grid">
+
+      <section class="shrine saint">
+        <h2>約束の仏</h2>
+        <p class="lv">聖人レベル <b id="saintLv">0</b><span> / 10</span></p>
+        <canvas class="stage" id="saintCanvas" width="280" height="320" aria-label="聖人キャラクター"></canvas>
+        <p class="poke-hint">タップすると反応します</p>
+        <div class="gauge">
+          <div class="nums"><span>徳ゲージ</span><span id="saintNums">0 / 1</span></div>
+          <div class="bar"><div class="fill" id="saintFill" style="width:0%"></div></div>
+        </div>
+        <p class="event-now" id="saintEvent"></p>
+      </section>
+
+      <section class="actions">
+        <div class="declare">
+          <button class="btn-big btn-kept" id="btnKept" type="button">
+            約束を守った！<small>相手の承認で徳が積まれる</small>
+          </button>
+          <button class="btn-big btn-late" id="btnLate" type="button">
+            遅刻しました…<small>相手の承認で業が刻まれる</small>
+          </button>
+        </div>
+        <div class="queue">
+          <h3>承 認 待 ち</h3>
+          <ul id="queueList"></ul>
+        </div>
+        <p class="partner" id="partnerBox"></p>
+      </section>
+
+      <section class="shrine devil">
+        <h2>遅刻の悪魔</h2>
+        <p class="lv">悪魔レベル <b id="devilLv">0</b><span> / 10</span></p>
+        <canvas class="stage" id="devilCanvas" width="280" height="320" aria-label="悪魔キャラクター"></canvas>
+        <p class="poke-hint">タップすると反応します</p>
+        <div class="gauge">
+          <div class="nums"><span>業ゲージ</span><span id="devilNums">0 / 1</span></div>
+          <div class="bar"><div class="fill" id="devilFill" style="width:0%"></div></div>
+        </div>
+        <p class="event-now" id="devilEvent"></p>
+      </section>
+    </div>
+
+    <div class="history">
+      <h3>因 果 帳</h3>
+      <ul id="historyList"></ul>
+    </div>
+  </div>
+</main>
+
+<!-- オープニング -->
+<div id="opening" role="presentation">
+  <canvas id="openingFx"></canvas>
+  <div class="op-inner">
+    <div class="op-line"></div>
+    <h2 class="op-title">ギルティ</h2>
+    <p class="op-sub">— 罪 と 罰 と 幸 福 —<br>約束を守れば、仏が微笑む。遅刻をすれば、悪魔が嗤う。</p>
+    <p class="op-skip">タップで始める</p>
+  </div>
+</div>
+
+<!-- レベルアップ演出 -->
+<div class="fanfare" id="fanfare" role="dialog" aria-modal="true">
+  <div class="card">
+    <div class="kind" id="ffKind"></div>
+    <div class="lvline" id="ffLv"></div>
+    <p class="story" id="ffStory"></p>
+    <button class="close" id="ffClose" type="button">つづける</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   カルマ帳 — 2人制・相互承認の徳/業トラッカー
+   データ設計:
+     meta/registry            {accounts:[{id,name,createdAt}]} 最大2件
+     requests/<autoId>        {from, type:'late'|'kept',
+                               status:'pending'|'approved'|'rejected',
+                               createdAt, decidedBy?, decidedAt?}
+   カウントは approved リクエストの集計から導出する
+   （カウンタの直接インクリメントはしない = 競合しない）。
+   ============================================================ */
+
+const MAX_LV = 10;
+const THRESHOLDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 1ポイント = 1レベル（Lv10 = 10ポイント）
+const LS_ACC = "karmacho.account";
+const LS_CELE = "karmacho.celebrated."; // + accId.type -> 最終演出済みレベル
+
+const SAINT_EVENTS = [
+  "まだ何者でもない。最初の一善を待っている。",
+  "あなたは道端で金貨を拾った。徳が芽生えている。",
+  "コンビニの募金箱に小銭を入れた。店員がにっこりした。",
+  "日ごろの行いが認められ、町の有名人になった。",
+  "子どもとハトがあなたの後をついてくるようになった。",
+  "頭上にうっすら後光が差しはじめた。",
+  "触れた自販機がぜんぶ当たりを出すようになった。",
+  "悟りの入口。あらゆる待ち合わせに10分前へ着く体になった。",
+  "千の手があなたを手伝いはじめた。家事が一瞬で終わる。",
+  "時間そのものがあなたに敬語を使いはじめた。",
+  "あなたは全宇宙を統べる仏となった。時間のほうがあなたに合わせる。",
+];
+const DEVIL_EVENTS = [
+  "まだ何者でもない。最初の遅刻を待っている。",
+  "ポケットから小銭が消えた。何かが芽生えている。",
+  "目覚まし時計があなたを二度見した。",
+  "「あいつはまた遅れる」と町で噂になった。",
+  "頭に小さなツノが生えた。鏡を見るのが少し怖い。",
+  "影が本体より5分遅れて動くようになった。",
+  "背中に翼の気配。電車があなたを見捨てて発車する。",
+  "あなたの周囲だけ時計が歪みはじめた。魔界の引力。",
+  "約束という概念があなたを避けて通るようになった。",
+  "魔界からスカウトが来た。待遇は「時間無制限」。",
+  "あなたは遅刻を司る大魔王として魔界に君臨した。定刻はもう意味を持たない。",
+];
+
+const $ = (id) => document.getElementById(id);
+let me = null;            // {id, name}
+let accounts = [];        // registry の写し
+let requests = [];        // requests の写し
+const clientId = "c" + Math.random().toString(36).slice(2, 10);
+
+function levelOf(n) {
+  let lv = 0;
+  for (const t of THRESHOLDS) if (n >= t) lv++;
+  return lv;
+}
+function fmtTime(ms) {
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ---------- 起動 (REST API + ポーリング同期) ---------- */
+async function api(path, body) {
+  const res = await fetch("/api/" + path, body
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    : undefined);
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(j.error || res.statusText), { code: j.error });
+  return j;
+}
+let online = false;
+async function refresh() {
+  try {
+    const d = await api("data");
+    accounts = d.accounts || [];
+    requests = (d.requests || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    if (!online) { online = true; $("offline").classList.add("hidden"); }
+    renderRoster();
+    renderApp();
+  } catch (e) {
+    if (!online) $("offline").classList.remove("hidden");
+  }
+}
+{
+  const saved = localStorage.getItem(LS_ACC);
+  if (saved) { try { me = JSON.parse(saved); } catch { me = null; } }
+}
+showScreen();
+refresh();
+setInterval(refresh, 4000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+
+function showScreen() {
+  $("gate").classList.toggle("hidden", !!me);
+  $("app").classList.toggle("hidden", !me);
+  $("whoBox").classList.toggle("hidden", !me);
+  if (me) $("whoName").textContent = me.name;
+  renderApp();
+}
+
+/* ---------- 登録 / ログイン ---------- */
+function renderRoster() {
+  const el = $("roster");
+  if (!el) return;
+  if (accounts.length === 0) {
+    el.textContent = "まだ誰も登録されていません。";
+  } else {
+    el.innerHTML = "登録済み: " + accounts.map((a) => `<b>${esc(a.name)}</b>`).join(" ・ ") +
+      (accounts.length >= 2 ? "（定員に達しています）" : "");
+  }
+}
+
+$("gateForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("gateName").value.trim();
+  const err = $("gateErr");
+  err.textContent = "";
+  if (!name) { err.textContent = "名前を入力してください。"; return; }
+  try {
+    const r = await api("register", { name });
+    login(r.account);
+    refresh();
+  } catch (ex) {
+    err.textContent = ex.code === "full"
+      ? "登録は2名までです。登録済みの名前でログインしてください。"
+      : "通信に失敗しました。もう一度お試しください。";
+  }
+});
+
+function login(acc) {
+  me = { id: acc.id, name: acc.name };
+  localStorage.setItem(LS_ACC, JSON.stringify(me));
+  $("gateName").value = "";
+  $("gateErr").textContent = "";
+  showScreen();
+}
+$("logoutBtn").addEventListener("click", () => {
+  me = null;
+  localStorage.removeItem(LS_ACC);
+  showScreen();
+});
+
+/* ---------- 全データリセット（誤タップ防止の2度押し式） ---------- */
+let resetArmed = 0;
+$("resetBtn").addEventListener("click", async () => {
+  const btn = $("resetBtn");
+  if (Date.now() > resetArmed) {
+    resetArmed = Date.now() + 6000;
+    btn.textContent = "本当に消します — もう一度タップで実行";
+    return;
+  }
+  btn.textContent = "消去中…";
+  try {
+    await api("reset", {});
+    Object.keys(localStorage).filter((k) => k.startsWith(LS_CELE)).forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem(LS_ACC);
+    me = null;
+    btn.textContent = "消去しました。最初から始められます。";
+    showScreen();
+    refresh();
+  } catch (e) {
+    btn.textContent = "失敗しました。もう一度タップで再試行";
+  }
+  resetArmed = 0;
+});
+
+/* ---------- 申請と承認 ---------- */
+async function declare(type) {
+  if (!me) return;
+  const already = requests.some((r) => r.status === "pending" && r.from === me.id && r.type === type);
+  if (already) return; // 同種の申請は同時に1件まで
+  try { await api("request", { from: me.id, type }); refresh(); } catch (ex) {}
+}
+$("btnKept").addEventListener("click", () => declare("kept"));
+$("btnLate").addEventListener("click", () => declare("late"));
+
+async function decide(reqId, approved) {
+  if (!me) return;
+  try { await api("decide", { id: reqId, approved, by: me.id }); refresh(); } catch (ex) {}
+}
+async function withdraw(reqId) {
+  try { await api("withdraw", { id: reqId }); refresh(); } catch (ex) {}
+}
+
+/* ---------- 集計と描画 ---------- */
+/* 天秤方式: 徳と業は1本の天秤。
+   約束を守る → +1 / 遅刻 → −1。プラス側なら仏が成長（悪魔は無）、
+   マイナス側なら悪魔が成長（仏は無）。両者が同時に立つことはない。 */
+function pointsFor(accId) {
+  let kept = 0, late = 0, bal = 0;
+  for (const r of requests) {
+    if (r.status !== "approved" || r.from !== accId) continue;
+    if (r.type === "kept") { kept++; bal++; }
+    else if (r.type === "late") { late++; bal--; }
+  }
+  return { kept, late, virtue: Math.max(0, bal), karma: Math.max(0, -bal) };
+}
+function nameOf(id) {
+  const a = accounts.find((a) => a.id === id);
+  return a ? a.name : "？";
+}
+
+let curSaintLv = 0, curDevilLv = 0;           // Canvas アニメが参照
+let curSaintWeaken = 0, curDevilWeaken = 0;   // 相手側の成長による弱体化 0..1
+
+function renderApp() {
+  if (!me || !$("app") || $("app").classList.contains("hidden")) { renderRoster(); return; }
+
+  const { kept, late, virtue, karma } = pointsFor(me.id);
+  const sLv = levelOf(virtue), dLv = levelOf(karma);
+  curSaintLv = sLv; curDevilLv = dLv;
+  curSaintWeaken = Math.min(1, karma / 10);   // 業の高まりが仏を蝕む
+  curDevilWeaken = Math.min(1, virtue / 10);  // 徳の高まりが悪魔を浄化する
+
+  renderGauge("saint", virtue, sLv, `（累計 守${kept}・遅${late}）`);
+  renderGauge("devil", karma, dLv, `（累計 遅${late}・守${kept}）`);
+  $("saintEvent").textContent = SAINT_EVENTS[sLv] +
+    (karma > 0 ? ` 悪魔の影が徳を蝕んでいる……` : "");
+  $("devilEvent").textContent = DEVIL_EVENTS[dLv] +
+    (virtue > 0 ? ` 誠実の光が業を焼いている……` : "");
+
+  maybeCelebrate("saint", sLv, kept + late === 0);
+  maybeCelebrate("devil", dLv, kept + late === 0);
+
+  // 承認キュー
+  const list = $("queueList");
+  const pend = requests.filter((r) => r.status === "pending");
+  list.innerHTML = "";
+  if (pend.length === 0) {
+    list.innerHTML = '<li class="empty">いまは何もありません。</li>';
+  } else {
+    for (const r of pend) {
+      const li = document.createElement("li");
+      const isMine = r.from === me.id;
+      const tag = r.type === "kept" ? '<span class="tag kept">約束を守った</span>' : '<span class="tag late">遅刻した</span>';
+      li.innerHTML = `<span class="req-label"><b>${esc(nameOf(r.from))}</b> ${tag}</span>`;
+      // お試しモード: 自分の申請も自己承認できる（本運用では相手のみ承認に戻す）
+      const ok = document.createElement("button");
+      ok.className = "b-approve"; ok.type = "button";
+      ok.textContent = isMine ? "自己承認（お試し）" : "承認";
+      ok.addEventListener("click", () => decide(r.id, true));
+      li.append(ok);
+      if (isMine) {
+        const c = document.createElement("button");
+        c.className = "b-reject"; c.type = "button"; c.textContent = "取り下げ";
+        c.addEventListener("click", () => withdraw(r.id));
+        li.append(c);
+      } else {
+        const ng = document.createElement("button");
+        ng.className = "b-reject"; ng.type = "button"; ng.textContent = "却下";
+        ng.addEventListener("click", () => decide(r.id, false));
+        li.append(ng);
+      }
+      list.appendChild(li);
+    }
+  }
+
+  // 相手の状況
+  const partner = accounts.find((a) => a.id !== me.id);
+  if (partner) {
+    const pc = pointsFor(partner.id);
+    const pSLv = levelOf(pc.virtue);
+    const pDLv = levelOf(pc.karma);
+    $("partnerBox").innerHTML =
+      `<b>${esc(partner.name)}</b> の現在<br>` +
+      `<span class="chip">聖人 Lv${pSLv}（守${pc.kept}） ／ 悪魔 Lv${pDLv}（遅${pc.late}）</span>`;
+  } else {
+    $("partnerBox").textContent = "相方はまだ登録されていません。";
+  }
+
+  // 因果帳（新しい順・直近30件）
+  const hist = $("historyList");
+  hist.innerHTML = "";
+  const done = requests.filter((r) => r.status !== "pending").slice(-30).reverse();
+  if (done.length === 0) {
+    hist.innerHTML = '<li>まだ何も記されていない。</li>';
+  } else {
+    for (const r of done) {
+      const li = document.createElement("li");
+      const cls = r.status === "rejected" ? "h-rej" : (r.type === "kept" ? "h-kept" : "h-late");
+      const verb = r.type === "kept" ? "約束を守った" : "遅刻した";
+      const suffix = r.status === "rejected"
+        ? `（${esc(nameOf(r.decidedBy))} が却下）`
+        : `（承認: ${esc(nameOf(r.decidedBy))}）`;
+      li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="${cls}">${esc(nameOf(r.from))} が ${verb} ${suffix}</span>`;
+      hist.appendChild(li);
+    }
+  }
+}
+
+function renderGauge(kind, count, lv, extra) {
+  const nextT = lv >= MAX_LV ? null : THRESHOLDS[lv];
+  const prevT = lv === 0 ? 0 : THRESHOLDS[lv - 1];
+  const pct = nextT === null ? 100 : Math.round(((count - prevT) / (nextT - prevT)) * 100);
+  $(kind + "Lv").textContent = lv;
+  $(kind + "Nums").textContent =
+    (nextT === null ? `${count}（極まっている）` : `${count} / ${nextT}`) + (extra || "");
+  $(kind + "Fill").style.width = Math.max(0, Math.min(100, pct)) + "%";
+}
+
+/* ---------- レベルアップ演出 ---------- */
+function maybeCelebrate(kind, lv, silent) {
+  const key = LS_CELE + me.id + "." + kind;
+  const seen = parseInt(localStorage.getItem(key) || "0", 10);
+  if (lv > seen) {
+    localStorage.setItem(key, String(lv));
+    if (lv > 0 && !silent) showFanfare(kind, lv, "up");
+  } else if (lv < seen) {
+    localStorage.setItem(key, String(lv));
+    if (!silent) showFanfare(kind, lv, "down"); // 相手側の成長に蝕まれて転落
+  }
+}
+function showFanfare(kind, lv, dir) {
+  const f = $("fanfare");
+  f.classList.remove("f-saint", "f-devil");
+  const isUp = dir !== "down";
+  // 転落時は「蝕んだ側」の色で染める
+  f.classList.add((kind === "saint") === isUp ? "f-saint" : "f-devil");
+  if (isUp) {
+    $("ffKind").textContent = kind === "saint" ? "― 徳 が 極 ま る ―" : "― 業 が 深 ま る ―";
+    $("ffLv").textContent = (kind === "saint" ? "聖人レベル " : "悪魔レベル ") + lv;
+    $("ffStory").textContent = (kind === "saint" ? SAINT_EVENTS : DEVIL_EVENTS)[lv];
+  } else if (kind === "saint") {
+    $("ffKind").textContent = "― 徳 が 蝕 ま れ る ―";
+    $("ffLv").textContent = "聖人レベル " + lv + " に転落";
+    $("ffStory").textContent = "遅刻の業が徳を蝕んだ。後光が薄れ、ハトが離れていく……";
+  } else {
+    $("ffKind").textContent = "― 業 が 浄 化 さ れ る ―";
+    $("ffLv").textContent = "悪魔レベル " + lv + " に弱体化";
+    $("ffStory").textContent = "誠実の光が業を焼き払った。ツノが少し縮んだ気がする……";
+  }
+  f.classList.add("show");
+  $("ffClose").focus();
+}
+$("ffClose").addEventListener("click", () => $("fanfare").classList.remove("show"));
+$("fanfare").addEventListener("click", (e) => { if (e.target === $("fanfare")) $("fanfare").classList.remove("show"); });
+
+/* ============================================================
+   キャラクター描画 (Canvas / 疑似3D)
+   レベルが上がるほど頭身が伸び、陰影と装飾が増えて「リアル」になる。
+   ============================================================ */
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let drawWeaken = 0; // 描画中キャラの弱体化度 0..1（drawCharacter が設定）
+
+function setupCanvas(canvas) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = 280, H = 320;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { ctx, W, H };
+}
+const saintC = setupCanvas($("saintCanvas"));
+const devilC = setupCanvas($("devilCanvas"));
+
+/* 頭身などレベル依存パラメータ */
+function bodyParams(lv) {
+  // lv0=たまご, lv1=2.2頭身 → lv5=4.5頭身
+  const t = Math.max(0, lv - 1) / 4;
+  return {
+    headR: 34 - t * 12,           // 頭は小さく
+    bodyH: 70 + t * 60,           // 体は長く
+    shoulder: 30 + t * 14,
+    detail: t,                    // 0..1 リアル度
+  };
+}
+
+/* タップリアクション: 仏=喜びの弾み+光輪 / 悪魔=身震い+衝撃波 */
+const reactUntil = { saint: 0, devil: 0 };
+function poke(kind) { reactUntil[kind] = performance.now() + 1100; }
+$("saintCanvas").addEventListener("pointerdown", () => poke("saint"));
+$("devilCanvas").addEventListener("pointerdown", () => poke("devil"));
+
+function drawCharacter(c, kind, lv, t) {
+  const { ctx, W, H } = c;
+  ctx.clearRect(0, 0, W, H);
+  const now = performance.now();
+  const react = Math.max(0, (reactUntil[kind] - now) / 1100); // 1→0 で減衰
+  ctx.save();
+  if (react > 0 && !reduceMotion) {
+    if (kind === "saint") {
+      // スクワッシュ&ストレッチの弾み
+      const sy = 1 + 0.09 * Math.sin(react * Math.PI * 5) * react;
+      const sx = 1 - (sy - 1) * 0.7;
+      ctx.translate(W / 2, H - 24); ctx.scale(sx, sy); ctx.translate(-W / 2, -(H - 24));
+    } else {
+      // 怒りの身震い
+      ctx.translate(Math.sin(now * 0.06) * 5 * react, Math.sin(now * 0.045) * 2 * react);
+    }
+  }
+  drawCharacterInner(c, kind, lv, t);
+  ctx.restore();
+  if (react > 0) drawReactionFx(ctx, kind, react, W, H);
+}
+
+function drawReactionFx(ctx, kind, react, W, H) {
+  const p = 1 - react; // 0→1 進行
+  const cx = W / 2, cy = H * 0.55;
+  ctx.save();
+  // 広がる衝撃波リング
+  ctx.globalAlpha = Math.max(0, 1 - p) * 0.85;
+  ctx.lineWidth = 3 * (1 - p) + 1;
+  ctx.strokeStyle = kind === "saint" ? "rgba(255,230,150,.9)" : "rgba(255,90,90,.9)";
+  ctx.beginPath(); ctx.arc(cx, cy, 20 + p * 120, 0, Math.PI * 2); ctx.stroke();
+  // 飛び散る火花
+  ctx.fillStyle = kind === "saint" ? "rgba(255,240,190,.9)" : "rgba(255,140,80,.9)";
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + p * 2;
+    const d = 30 + p * 90;
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.8, 2.5 * (1 - p) + 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawCharacterInner(c, kind, lv, t) {
+  const { ctx, W, H } = c;
+  const cx = W / 2;
+  drawWeaken = kind === "saint" ? curSaintWeaken : curDevilWeaken;
+  // 弱ると浮遊も小さく元気がなくなる
+  const vigor = 1 - drawWeaken * 0.6;
+  const bob = reduceMotion ? 0 : Math.sin(t * 1.6 * vigor) * (3 + lv) * vigor;
+  const sway = reduceMotion ? 0 : Math.sin(t * 0.8) * 0.03 * vigor;
+
+  if (lv === 0) { drawEgg(ctx, cx, H, kind, t); return; }
+
+  // Lv5以上はリアル系モデル。装飾グレード g(3〜5) と大きさ k がレベルで育つ。
+  // Lv1-4 はチープでかわいいマンガ調ちび（下のジェネリック描画）。
+  if (lv >= 5) {
+    const g = lv >= 10 ? 5 : lv >= 7 ? 4 : 3;
+    const k = 0.70 + (lv - 5) * 0.06; // 5:0.70 → 10:1.0 足元基準で拡大
+    ctx.save();
+    ctx.translate(cx, H); ctx.scale(k, k); ctx.translate(-cx, -H);
+    if (kind === "saint") drawSaintUltimate(ctx, W, H, t, g);
+    else drawDevilUltimate(ctx, W, H, t, g);
+    ctx.restore();
+    applyWeakenVeil(ctx, kind, W, H);
+    drawParticles(ctx, kind, Math.min(5, lv), t, W, H);
+    return;
+  }
+
+  const p = bodyParams(lv);
+  const baseY = H - 44;               // 足元
+  const bodyTop = baseY - p.bodyH;
+  const headY = bodyTop - p.headR + 6 + bob * 0.3;
+
+  /* --- 背景オーラ --- */
+  if (kind === "saint") drawSaintAura(ctx, cx, headY, lv, t, W, H);
+  else drawDevilAura(ctx, cx, baseY, lv, t, W, H);
+
+  /* --- 台座 --- */
+  if (lv >= 3) {
+    if (kind === "saint") drawLotus(ctx, cx, baseY + 10, 60 + lv * 8, lv);
+    else drawRock(ctx, cx, baseY + 10, 58 + lv * 8, lv, t);
+  } else {
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.beginPath(); ctx.ellipse(cx, baseY + 12, 44, 9, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.save();
+  ctx.translate(cx, baseY);
+  ctx.rotate(sway);
+  ctx.translate(-cx, -baseY + bob);
+
+  /* --- 体 --- */
+  if (kind === "saint") drawSaintBody(ctx, cx, baseY, bodyTop, p, lv);
+  else drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t);
+
+  /* --- 頭 --- */
+  if (kind === "saint") drawSaintHead(ctx, cx, headY, p, lv, t);
+  else drawDevilHead(ctx, cx, headY, p, lv, t);
+
+  ctx.restore();
+
+  applyWeakenVeil(ctx, kind, W, H);
+
+  /* --- 前面パーティクル --- */
+  drawParticles(ctx, kind, lv, t, W, H);
+}
+
+/* 相手側の成長による帳（とばり）: 仏には影が差し、悪魔には光がかかる */
+function applyWeakenVeil(ctx, kind, W, H) {
+  if (drawWeaken <= 0.02) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = kind === "saint"
+    ? `rgba(40,20,60,${drawWeaken * 0.42})`
+    : `rgba(240,225,190,${drawWeaken * 0.32})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/* ---------- たまご (Lv0) ---------- */
+function drawEgg(ctx, cx, H, kind, t) {
+  const y = H - 110 + (reduceMotion ? 0 : Math.sin(t * 1.4) * 3);
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath(); ctx.ellipse(cx, H - 40, 40, 8, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(cx - 12, y - 20, 6, cx, y, 60);
+  g.addColorStop(0, "#4a4368"); g.addColorStop(1, "#262138");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(cx, y, 42, 54, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = kind === "saint" ? "rgba(217,164,65,.7)" : "rgba(212,64,90,.7)";
+  ctx.font = "600 30px serif"; ctx.textAlign = "center";
+  ctx.fillText("？", cx, y + 10);
+}
+
+/* ---------- 聖人 ---------- */
+function drawSaintAura(ctx, cx, headY, lv, t, W, H) {
+  const dim = 1 - drawWeaken * 0.75; // 影が差すとオーラが薄れる
+  const glow = ctx.createRadialGradient(cx, headY + 30, 10, cx, headY + 30, 90 + lv * 26);
+  glow.addColorStop(0, `rgba(240,217,160,${(0.10 + lv * 0.045) * dim})`);
+  glow.addColorStop(1, "rgba(240,217,160,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  if (lv >= 4) { // 曼荼羅光背
+    ctx.save(); ctx.translate(cx, headY + 24);
+    if (!reduceMotion) ctx.rotate(t * 0.12 * (1 - drawWeaken * 0.5));
+    const n = lv === 5 ? 16 : 10;
+    ctx.strokeStyle = `rgba(217,164,65,${(lv === 5 ? 0.5 : 0.3) * dim})`;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 46, Math.sin(a) * 46);
+      ctx.lineTo(Math.cos(a) * (76 + lv * 8), Math.sin(a) * (76 + lv * 8));
+      ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 62 + lv * 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawSaintBody(ctx, cx, baseY, bodyTop, p, lv) {
+  // 袈裟: 台形 + 曲線裾
+  const w = p.shoulder;
+  const grad = ctx.createLinearGradient(cx - w, bodyTop, cx + w * 1.4, baseY);
+  if (lv >= 5) { grad.addColorStop(0, "#f4dda2"); grad.addColorStop(.5, "#d9a441"); grad.addColorStop(1, "#8a6218"); }
+  else { grad.addColorStop(0, "#e8c98a"); grad.addColorStop(.55, "#c79436"); grad.addColorStop(1, "#7d5c1e"); }
+  ctx.fillStyle = lv === 1 ? "#c79436" : grad; // Lv1はベタ塗りのチープ表現
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.62, bodyTop);
+  ctx.quadraticCurveTo(cx - w * 1.28, baseY - 10, cx - w * 1.02, baseY);
+  ctx.quadraticCurveTo(cx, baseY + 8, cx + w * 1.02, baseY);
+  ctx.quadraticCurveTo(cx + w * 1.28, baseY - 10, cx + w * 0.62, bodyTop);
+  ctx.closePath(); ctx.fill();
+  // 低レベルはマンガ調アウトライン、高レベルは輪郭が消えて絵画的に
+  if (lv <= 3) { ctx.strokeStyle = "rgba(35,22,4,.75)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
+  else if (lv >= 4) { // 背後光のリムライト
+    ctx.strokeStyle = "rgba(255,238,180,.55)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + w * 0.62, bodyTop + 2);
+    ctx.quadraticCurveTo(cx + w * 1.22, baseY - 12, cx + w * 0.98, baseY - 2);
+    ctx.stroke();
+  }
+  // 衣の折り目 (リアル度で本数増)
+  const folds = 1 + Math.round(p.detail * 4);
+  ctx.strokeStyle = "rgba(60,40,8,.35)"; ctx.lineWidth = 1.2;
+  for (let i = 1; i <= folds; i++) {
+    const fx = cx - w * 0.5 + (w / (folds + 1)) * i * 1.0;
+    ctx.beginPath();
+    ctx.moveTo(fx, bodyTop + 14);
+    ctx.quadraticCurveTo(fx - 6, (bodyTop + baseY) / 2, fx + 3, baseY - 6);
+    ctx.stroke();
+  }
+  // 合掌の手
+  const hy = bodyTop + p.bodyH * 0.34;
+  ctx.fillStyle = lv >= 5 ? "#f6e2b0" : "#f0cf9b";
+  ctx.beginPath(); ctx.ellipse(cx, hy, 9, 15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(90,60,20,.4)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, hy - 14); ctx.lineTo(cx, hy + 14); ctx.stroke();
+  // 襟
+  ctx.strokeStyle = lv >= 4 ? "rgba(255,240,200,.8)" : "rgba(255,240,200,.5)";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.5, bodyTop + 4);
+  ctx.lineTo(cx, bodyTop + 26);
+  ctx.lineTo(cx + w * 0.5, bodyTop + 4);
+  ctx.stroke();
+}
+function drawSaintHead(ctx, cx, headY, p, lv, t) {
+  const r = p.headR;
+  // 後光の輪（弱ると薄れ、ちらつく）
+  ctx.save();
+  const haloDim = (1 - drawWeaken * 0.7) *
+    (drawWeaken > 0.4 && !reduceMotion ? 0.75 + Math.sin(t * 9) * 0.25 : 1);
+  ctx.strokeStyle = `rgba(240,217,160,${(0.35 + lv * 0.12) * haloDim})`;
+  ctx.lineWidth = lv >= 4 ? 4 : 2.5;
+  ctx.shadowColor = "rgba(240,217,160,.8)"; ctx.shadowBlur = (6 + lv * 3) * haloDim;
+  ctx.beginPath(); ctx.ellipse(cx, headY - r * 0.9, r * (1.0 + lv * 0.12), r * (0.32 + lv * 0.03), 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  // 顔
+  const skin = ctx.createRadialGradient(cx - r * 0.35, headY - r * 0.35, r * 0.2, cx, headY, r * 1.15);
+  if (lv >= 5) { skin.addColorStop(0, "#ffe9bd"); skin.addColorStop(1, "#d9a95f"); }
+  else { skin.addColorStop(0, "#fbe0b4"); skin.addColorStop(1, "#cfa268"); }
+  ctx.fillStyle = lv === 1 ? "#f0d0a0" : skin;
+  ctx.beginPath(); ctx.arc(cx, headY, r, 0, Math.PI * 2); ctx.fill();
+  if (lv <= 3) { ctx.strokeStyle = "rgba(60,38,10,.75)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
+  else if (lv >= 4) { // 3DCG風の照り: リムライトとスペキュラ
+    ctx.strokeStyle = "rgba(255,240,190,.6)"; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(cx, headY, r - 1, -Math.PI * 0.2, Math.PI * 0.45); ctx.stroke();
+    ctx.fillStyle = "rgba(255,250,230,.30)";
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.35, headY - r * 0.5, r * 0.4, r * 0.2, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // 螺髪 (Lv3+) / 髪
+  if (lv >= 3) {
+    ctx.fillStyle = "#3d5a80";
+    ctx.beginPath(); ctx.arc(cx, headY - r * 0.28, r * 0.92, Math.PI, 0); ctx.closePath(); ctx.fill();
+    const dots = 5 + lv * 2;
+    ctx.fillStyle = "#2c4160";
+    for (let i = 0; i < dots; i++) {
+      const a = Math.PI + (i / (dots - 1)) * Math.PI;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * r * 0.72, headY - r * 0.28 + Math.sin(a) * r * 0.72, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 肉髻
+    ctx.fillStyle = "#3d5a80";
+    ctx.beginPath(); ctx.arc(cx, headY - r * 1.05, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = "#4a4a55";
+    ctx.beginPath(); ctx.arc(cx, headY - r * 0.25, r * 0.95, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  }
+  // 長い耳 (Lv4+)
+  if (lv >= 4) {
+    ctx.fillStyle = "#e8c48c";
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(cx + s * r * 0.98, headY + r * 0.18, r * 0.14, r * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // 白毫 (Lv4+)
+  if (lv >= 4) {
+    ctx.fillStyle = "#fff3d0";
+    ctx.beginPath(); ctx.arc(cx, headY - r * 0.35, r * 0.08, 0, Math.PI * 2); ctx.fill();
+  }
+  // 目: 伏し目。まれに開く
+  const open = !reduceMotion && Math.sin(t * 0.5) > 0.995;
+  ctx.strokeStyle = "#5a4326"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    if (open) { ctx.arc(cx + s * r * 0.38, headY - r * 0.05, r * 0.1, 0, Math.PI * 2); }
+    else { ctx.arc(cx + s * r * 0.38, headY - r * 0.08, r * 0.16, Math.PI * 0.15, Math.PI * 0.85); }
+    ctx.stroke();
+  }
+  // 口: 微笑（弱ると への字 に）
+  ctx.beginPath();
+  if (drawWeaken > 0.45) {
+    ctx.arc(cx, headY + r * 0.62, r * 0.22, Math.PI * 1.2, Math.PI * 1.8);
+  } else {
+    ctx.arc(cx, headY + r * 0.38, r * 0.22, Math.PI * 0.2, Math.PI * 0.8);
+  }
+  ctx.stroke();
+  // 困り眉と冷や汗
+  if (drawWeaken > 0.25) {
+    ctx.lineWidth = 2;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * r * 0.18, headY - r * 0.32);
+      ctx.lineTo(cx + s * r * 0.55, headY - r * 0.22);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(160,200,240,.8)";
+    ctx.beginPath();
+    ctx.ellipse(cx + r * 0.85, headY - r * 0.5, r * 0.07, r * 0.12, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+function drawLotus(ctx, cx, y, w, lv) {
+  const petals = 7 + lv * 2;
+  for (let i = 0; i < petals; i++) {
+    const a = Math.PI + (i / (petals - 1)) * Math.PI;
+    const px = cx + Math.cos(a) * w * 0.8;
+    const g = ctx.createLinearGradient(px, y - 18, px, y + 6);
+    g.addColorStop(0, "#f2b7c6"); g.addColorStop(1, "#c97a92");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(px, y - 4, w * 0.16, 16, a + Math.PI / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#e8a5b8";
+  ctx.beginPath(); ctx.ellipse(cx, y, w * 0.85, 12, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+/* ---------- 仏 最終形態 (Lv5): 千手観音・疑似3D ---------- */
+function drawSaintUltimate(ctx, W, H, t, lv = 5) {
+  const cx = W / 2;
+  const dim = 1 - drawWeaken * 0.75;
+  const breathe = reduceMotion ? 0 : Math.sin(t * 1.1) * 2;
+  const hipY = 238 + breathe * 0.3;
+  const shoulderY = hipY - 62 + breathe * 0.5;
+  const headY = hipY - 92 + breathe;
+  const skinHi = "#f6cf8e", skinMid = "#cf9a4d", skinLo = "#7d4c14";
+
+  /* 黄金の空間 */
+  const bg = ctx.createRadialGradient(cx, shoulderY, 10, cx, shoulderY, 250);
+  bg.addColorStop(0, `rgba(255,222,140,${0.30 * dim})`);
+  bg.addColorStop(0.5, `rgba(190,125,35,${0.15 * dim})`);
+  bg.addColorStop(1, "rgba(60,30,5,0)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  /* 回転する光条 (Lv4+) */
+  if (lv >= 4) {
+    const rays = lv === 5 ? 14 : 8;
+    ctx.save();
+    ctx.translate(cx, shoulderY);
+    if (!reduceMotion) ctx.rotate(t * 0.04);
+    for (let i = 0; i < rays; i++) {
+      ctx.rotate((Math.PI * 2) / rays);
+      const g = ctx.createLinearGradient(0, 0, 0, -250);
+      g.addColorStop(0, `rgba(255,215,130,${0.09 * dim})`);
+      g.addColorStop(1, "rgba(255,215,130,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-8, -250); ctx.lineTo(8, -250); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* 背後の千手（奥の層のみ・薄く, Lv4+） */
+  if (lv >= 4) {
+    ctx.save(); ctx.globalAlpha = lv === 5 ? 0.55 : 0.3;
+    drawArmFan(ctx, cx, shoulderY + 4, t, 0);
+    ctx.restore();
+  }
+
+  if (lv >= 5) {
+  /* 巨大な化身: 半分は静かな貌、半分は骸骨 */
+  const avY = 56 + (reduceMotion ? 0 : Math.sin(t * 0.5) * 2);
+  ctx.save();
+  ctx.globalAlpha = 0.85 * dim;
+  const avG = ctx.createRadialGradient(cx - 12, avY - 10, 6, cx, avY, 52);
+  avG.addColorStop(0, "#f2d492"); avG.addColorStop(0.7, "#c2913a"); avG.addColorStop(1, "#6e4a12");
+  ctx.fillStyle = avG;
+  ctx.beginPath(); ctx.ellipse(cx, avY, 36, 44, 0, 0, Math.PI * 2); ctx.fill();
+  // 宝冠の笠
+  ctx.fillStyle = "#8a5f1c";
+  ctx.beginPath(); ctx.ellipse(cx, avY - 36, 42, 12, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+  // 左半分: 伏し目の静かな貌
+  ctx.strokeStyle = "rgba(70,40,8,.9)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.arc(cx - 15, avY - 4, 8, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+  // 右半分: 骸骨の相
+  ctx.fillStyle = "rgba(40,22,4,.85)";
+  ctx.beginPath(); ctx.ellipse(cx + 15, avY - 4, 9, 11, 0.1, 0, Math.PI * 2); ctx.fill(); // 虚ろな眼窩
+  ctx.beginPath(); ctx.ellipse(cx + 8, avY + 16, 3.5, 5, 0.2, 0, Math.PI * 2); ctx.fill(); // 鼻腔
+  ctx.strokeStyle = "rgba(40,22,4,.8)"; ctx.lineWidth = 1.5;
+  for (let k = 0; k < 4; k++) { // 剥き出しの歯列
+    ctx.beginPath();
+    ctx.moveTo(cx + 6 + k * 6, avY + 26);
+    ctx.lineTo(cx + 7 + k * 6, avY + 34);
+    ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(cx + 3, avY + 30); ctx.quadraticCurveTo(cx + 15, avY + 34, cx + 28, avY + 26); ctx.stroke();
+  // 頬のこけた影
+  ctx.fillStyle = "rgba(60,34,6,.35)";
+  ctx.beginPath(); ctx.ellipse(cx + 22, avY + 12, 8, 12, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  /* 化身から垂れる数珠の連なり */
+  ctx.save();
+  ctx.globalAlpha = 0.9 * dim;
+  for (const strand of [[-46, 96, 0, 150], [46, 96, 0, 150]]) {
+    const [sx, sy, ex, eyv] = strand;
+    for (let k = 0; k <= 7; k++) {
+      const kt = k / 7;
+      const bx = cx + sx + (ex - sx) * kt;
+      const by = sy + (eyv - sy) * kt + Math.sin(kt * Math.PI) * 18 + (reduceMotion ? 0 : Math.sin(t * 0.8 + k) * 2);
+      const br = 5.5 - Math.abs(kt - 0.5) * 2;
+      const bg2 = ctx.createRadialGradient(bx - 2, by - 2, 1, bx, by, br);
+      bg2.addColorStop(0, "#ffe9b8"); bg2.addColorStop(1, "#8a5c16");
+      ctx.fillStyle = bg2;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  /* 両端からせり上がる巨大な掌 */
+  for (const s of [-1, 1]) {
+    ctx.save();
+    ctx.translate(cx + s * 118, 330);
+    ctx.scale(s, 1);
+    ctx.globalAlpha = 0.9;
+    const gh = ctx.createLinearGradient(0, -140, 0, 0);
+    gh.addColorStop(0, "#d9a95a"); gh.addColorStop(1, "#4a2e08");
+    ctx.fillStyle = gh;
+    // 指3本 + 掌の塊
+    for (let f = 0; f < 3; f++) {
+      const fx = -26 + f * 20;
+      const fh = 118 - Math.abs(f - 1) * 16 + (reduceMotion ? 0 : Math.sin(t * 0.6 + f) * 3);
+      ctx.beginPath();
+      ctx.moveTo(fx - 9, 0);
+      ctx.lineTo(fx - 9, -fh + 10);
+      ctx.quadraticCurveTo(fx, -fh - 8, fx + 9, -fh + 10);
+      ctx.lineTo(fx + 9, 0);
+      ctx.closePath(); ctx.fill();
+      // 節の陰影
+      ctx.strokeStyle = "rgba(70,42,8,.5)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(fx - 8, -fh * 0.45); ctx.quadraticCurveTo(fx, -fh * 0.45 - 5, fx + 8, -fh * 0.45); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(fx - 8, -fh * 0.75); ctx.quadraticCurveTo(fx, -fh * 0.75 - 5, fx + 8, -fh * 0.75); ctx.stroke();
+    }
+    // 掌の付け根
+    ctx.beginPath(); ctx.ellipse(-6, -6, 42, 28, -0.15, 0, Math.PI * 2); ctx.fill();
+    // リムライト
+    ctx.strokeStyle = `rgba(255,235,170,${0.5 * dim})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-35, -20); ctx.quadraticCurveTo(-38, -80, -33, -108); ctx.stroke();
+    ctx.restore();
+  }
+  } // lv >= 5
+
+  /* 光背の円盤 */
+  const halo = ctx.createRadialGradient(cx, headY, 6, cx, headY, 60);
+  halo.addColorStop(0, `rgba(255,240,190,${0.8 * dim})`);
+  halo.addColorStop(0.55, `rgba(240,190,90,${0.45 * dim})`);
+  halo.addColorStop(1, "rgba(240,190,90,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(cx, headY, 60, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = `rgba(255,230,160,${0.7 * dim})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, headY, 46, 0, Math.PI * 2); ctx.stroke();
+
+  /* 浮遊する数珠玉 (Lv4+) */
+  for (let i = 0; i < (lv >= 5 ? 9 : lv === 4 ? 5 : 0); i++) {
+    const a = (i / 9) * Math.PI * 2 + (reduceMotion ? 0 : t * 0.22);
+    const rr = 96 + (i % 3) * 20;
+    const bx = cx + Math.cos(a) * rr;
+    const by = shoulderY - 10 + Math.sin(a) * rr * 0.55 + (reduceMotion ? 0 : Math.sin(t + i) * 4);
+    const br = 4 + (i % 3) * 2.5;
+    const og = ctx.createRadialGradient(bx - br * 0.4, by - br * 0.4, br * 0.15, bx, by, br);
+    og.addColorStop(0, "#ffeec0"); og.addColorStop(1, "#a5701f");
+    ctx.globalAlpha = 0.9 * dim;
+    ctx.fillStyle = og;
+    ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /* ==== 本体: 結跏趺坐 ==== */
+  ctx.fillStyle = "rgba(30,12,0,.35)";
+  ctx.beginPath(); ctx.ellipse(cx, hipY + 40, 64, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 組んだ脚
+  const legG = ctx.createLinearGradient(cx, hipY + 4, cx, hipY + 42);
+  legG.addColorStop(0, skinMid); legG.addColorStop(1, skinLo);
+  ctx.fillStyle = legG;
+  ctx.beginPath();
+  ctx.moveTo(cx - 62, hipY + 30);
+  ctx.quadraticCurveTo(cx - 30, hipY + 2, cx, hipY + 8);
+  ctx.quadraticCurveTo(cx + 30, hipY + 2, cx + 62, hipY + 30);
+  ctx.quadraticCurveTo(cx + 30, hipY + 44, cx, hipY + 42);
+  ctx.quadraticCurveTo(cx - 30, hipY + 44, cx - 62, hipY + 30);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(70,40,8,.4)"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(cx - 26, hipY + 30); ctx.quadraticCurveTo(cx, hipY + 18, cx + 30, hipY + 32); ctx.stroke();
+  ctx.fillStyle = skinHi; // 組んだ足の甲
+  ctx.beginPath(); ctx.ellipse(cx + 26, hipY + 24, 13, 6.5, -0.25, 0, Math.PI * 2); ctx.fill();
+
+  // 裳(黒)
+  const clothG = ctx.createLinearGradient(cx, hipY - 12, cx, hipY + 16);
+  clothG.addColorStop(0, "#241812"); clothG.addColorStop(1, "#0f0a08");
+  ctx.fillStyle = clothG;
+  ctx.beginPath(); ctx.ellipse(cx, hipY + 4, 34, 16, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 胴(筋肉質)
+  const torsoG = ctx.createLinearGradient(cx - 30, shoulderY, cx + 34, hipY);
+  torsoG.addColorStop(0, skinHi); torsoG.addColorStop(0.6, skinMid); torsoG.addColorStop(1, skinLo);
+  ctx.fillStyle = torsoG;
+  ctx.beginPath();
+  ctx.moveTo(cx - 30, shoulderY);
+  ctx.quadraticCurveTo(cx - 34, shoulderY + 26, cx - 22, hipY - 2);
+  ctx.lineTo(cx + 22, hipY - 2);
+  ctx.quadraticCurveTo(cx + 34, shoulderY + 26, cx + 30, shoulderY);
+  ctx.quadraticCurveTo(cx, shoulderY - 10, cx - 30, shoulderY);
+  ctx.closePath(); ctx.fill();
+  // 胸筋・腹筋
+  ctx.strokeStyle = "rgba(90,50,10,.45)"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(cx - 12, shoulderY + 18, 11, Math.PI * 0.15, Math.PI * 0.9); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx + 12, shoulderY + 18, 11, Math.PI * 0.1, Math.PI * 0.85); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, shoulderY + 30); ctx.lineTo(cx, hipY - 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 8, shoulderY + 40); ctx.lineTo(cx + 8, shoulderY + 40); ctx.stroke();
+  // 条帛(肩掛けの帯)
+  ctx.strokeStyle = "rgba(255,235,180,.5)"; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(cx - 24, shoulderY + 2); ctx.quadraticCurveTo(cx + 4, shoulderY + 34, cx + 20, hipY - 4); ctx.stroke();
+
+  // 主腕: 合掌
+  const handY = shoulderY + 30;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = skinMid; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(cx - 27, shoulderY + 6); ctx.quadraticCurveTo(cx - 22, handY + 8, cx - 4, handY); ctx.stroke();
+  ctx.strokeStyle = skinLo;
+  ctx.beginPath(); ctx.moveTo(cx + 27, shoulderY + 6); ctx.quadraticCurveTo(cx + 22, handY + 8, cx + 4, handY); ctx.stroke();
+  ctx.fillStyle = skinHi;
+  ctx.beginPath(); ctx.ellipse(cx, handY - 4, 7, 14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(90,50,10,.5)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, handY - 17); ctx.lineTo(cx, handY + 9); ctx.stroke();
+
+  // 首と頭
+  const r = 19;
+  ctx.fillStyle = skinMid;
+  ctx.fillRect(cx - 6, headY + r * 0.6, 12, 10);
+  const faceG = ctx.createRadialGradient(cx - 6, headY - 6, 3, cx, headY, r * 1.2);
+  faceG.addColorStop(0, "#ffe2ae"); faceG.addColorStop(0.7, skinMid); faceG.addColorStop(1, skinLo);
+  ctx.fillStyle = faceG;
+  ctx.beginPath(); ctx.arc(cx, headY, r, 0, Math.PI * 2); ctx.fill();
+  // リムライト(背後の光の回り込み)
+  ctx.strokeStyle = `rgba(255,240,190,${0.75 * dim})`; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(cx, headY, r - 0.5, -Math.PI * 0.15, Math.PI * 0.6); ctx.stroke();
+  // 長い耳
+  ctx.fillStyle = skinMid;
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(cx + s * (r - 1), headY + 4, 3.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  if (lv >= 4) {
+    // 宝冠
+    ctx.fillStyle = "#e8bd5e";
+    ctx.beginPath();
+    ctx.moveTo(cx - r + 2, headY - 8);
+    ctx.lineTo(cx - r + 2, headY - 15);
+    ctx.lineTo(cx - 9, headY - 13); ctx.lineTo(cx - 6, headY - 22);
+    ctx.lineTo(cx, headY - 16);
+    ctx.lineTo(cx + 6, headY - 22); ctx.lineTo(cx + 9, headY - 13);
+    ctx.lineTo(cx + r - 2, headY - 15); ctx.lineTo(cx + r - 2, headY - 8);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#c8384a";
+    ctx.beginPath(); ctx.arc(cx, headY - 14, 2, 0, Math.PI * 2); ctx.fill();
+    // 頂の火焔
+    const fl = reduceMotion ? 0 : Math.sin(t * 6) * 3;
+    ctx.save();
+    ctx.shadowColor = "rgba(255,240,180,.95)"; ctx.shadowBlur = 14;
+    const flameG = ctx.createLinearGradient(cx, headY - 24, cx, headY - 46 - fl);
+    flameG.addColorStop(0, "#fff6d8"); flameG.addColorStop(1, "rgba(255,200,90,.15)");
+    ctx.fillStyle = flameG;
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, headY - 22);
+    ctx.quadraticCurveTo(cx - 7, headY - 34 - fl * 0.5, cx, headY - 46 - fl);
+    ctx.quadraticCurveTo(cx + 7, headY - 34 - fl * 0.5, cx + 5, headY - 22);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  } else {
+    // Lv3: 素朴な肉髻（もとどり）
+    ctx.fillStyle = "#8a5f2a";
+    ctx.beginPath(); ctx.arc(cx, headY - r + 1, 6, 0, Math.PI * 2); ctx.fill();
+  }
+  // 相貌: 伏し目・白毫・微笑
+  ctx.strokeStyle = "#5a3a14"; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.arc(cx + s * 7, headY - 1, 3.5, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, headY + 9, 4.5, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+  ctx.fillStyle = "#fff3d0";
+  ctx.beginPath(); ctx.arc(cx, headY - 7, 1.6, 0, Math.PI * 2); ctx.fill();
+
+  // スペキュラハイライト(3Dモデルのテカリ)
+  ctx.fillStyle = "rgba(255,250,230,.35)";
+  ctx.beginPath(); ctx.ellipse(cx - 6, headY - 10, 7, 4, -0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - 24, shoulderY + 4, 8, 3.5, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 24, shoulderY + 4, 8, 3.5, -0.3, 0, Math.PI * 2); ctx.fill();
+}
+
+/* 千手の扇。layer 0=奥(暗・長), 1=手前(明・短) */
+function drawArmFan(ctx, cx, cy, t, layer) {
+  const n = 7;
+  const isBack = layer === 0;
+  const parallax = reduceMotion ? 0 : Math.sin(t * 0.35) * (isBack ? 3 : 6);
+  const baseLen = isBack ? 118 : 96;
+  ctx.save();
+  ctx.translate(parallax, 0);
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < n; i++) {
+      const frac = i / (n - 1);
+      const ang = ((-78 + frac * 118) * Math.PI) / 180; // 真上近くから斜め下まで扇状に
+      const wave = reduceMotion ? 0 : Math.sin(t * 1.3 + i * 0.7 + layer * 1.7) * 3;
+      const L = baseLen - Math.abs(frac - 0.35) * 26;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(s, 1);
+      ctx.rotate(ang);
+      const g = ctx.createLinearGradient(0, 0, L, 0);
+      if (isBack) { g.addColorStop(0, "rgba(120,75,18,0)"); g.addColorStop(0.5, "#8a5f1e"); g.addColorStop(1, "#c69a45"); }
+      else { g.addColorStop(0, "rgba(170,110,30,0)"); g.addColorStop(0.5, "#c08c33"); g.addColorStop(1, "#f2d488"); }
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(14, -6.5);
+      ctx.quadraticCurveTo(L * 0.55, -11 - wave, L, -4 - wave);
+      ctx.quadraticCurveTo(L + 10, -wave, L, 4 - wave);
+      ctx.quadraticCurveTo(L * 0.55, 9 - wave, 14, 6.5);
+      ctx.closePath(); ctx.fill();
+      // 掌
+      ctx.fillStyle = isBack ? "#c69a45" : "#f2d488";
+      ctx.beginPath();
+      ctx.ellipse(L + 4, -wave, 7.5, 10.5, 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      if (!isBack) {
+        // 指の刻みと掌眼
+        ctx.strokeStyle = "rgba(120,75,18,.5)"; ctx.lineWidth = 1;
+        for (let f = -1; f <= 1; f++) {
+          ctx.beginPath();
+          ctx.moveTo(L + 6, f * 3.5 - wave);
+          ctx.lineTo(L + 11, f * 4.5 - wave);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(90,50,10,.55)";
+        ctx.beginPath(); ctx.ellipse(L + 3, -wave, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // 下面の影で丸みを出す
+      ctx.strokeStyle = "rgba(60,32,4,.35)"; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(16, 6);
+      ctx.quadraticCurveTo(L * 0.55, 9 - wave, L, 4 - wave);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+/* ---------- 悪魔 ---------- */
+function drawDevilAura(ctx, cx, baseY, lv, t, W, H) {
+  const dim = 1 - drawWeaken * 0.7; // 誠実の光で炎が鎮まる
+  const glow = ctx.createRadialGradient(cx, baseY - 60, 10, cx, baseY - 60, 90 + lv * 26);
+  glow.addColorStop(0, `rgba(212,64,90,${(0.08 + lv * 0.04) * dim})`);
+  glow.addColorStop(1, "rgba(109,42,142,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  // ゆらめく炎 (Lv2+)
+  if (lv >= 2) {
+    const flames = 3 + lv * 2;
+    for (let i = 0; i < flames; i++) {
+      const fx = cx + (i - flames / 2) * (110 / flames) + (reduceMotion ? 0 : Math.sin(t * 2 + i * 2.1) * 6);
+      const fh = (24 + lv * 8 + (reduceMotion ? 0 : Math.sin(t * 3 + i) * 8)) * (1 - drawWeaken * 0.5);
+      const g = ctx.createLinearGradient(fx, baseY, fx, baseY - fh);
+      g.addColorStop(0, `rgba(212,64,90,${(0.35 + lv * 0.06) * dim})`);
+      g.addColorStop(1, "rgba(109,42,142,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(fx - 8, baseY + 6);
+      ctx.quadraticCurveTo(fx - 4, baseY - fh * 0.6, fx, baseY - fh);
+      ctx.quadraticCurveTo(fx + 4, baseY - fh * 0.6, fx + 8, baseY + 6);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+function drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t) {
+  const w = p.shoulder;
+  // 翼 (Lv2から小さく生える)
+  if (lv >= 2) {
+    const span = 26 + lv * 12;
+    const flap = reduceMotion ? 0 : Math.sin(t * 2.2) * 6;
+    ctx.fillStyle = lv >= 5 ? "rgba(58,20,74,.95)" : "rgba(58,20,74,.75)";
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(cx + s * w * 0.5, bodyTop + 12);
+      ctx.quadraticCurveTo(cx + s * (w + span), bodyTop - 24 - flap, cx + s * (w + span * 1.15), bodyTop + 26 - flap);
+      ctx.quadraticCurveTo(cx + s * (w + span * 0.7), bodyTop + 30, cx + s * (w + span * 0.62), bodyTop + 44);
+      ctx.quadraticCurveTo(cx + s * (w + span * 0.32), bodyTop + 40, cx + s * (w + span * 0.28), bodyTop + 56);
+      ctx.quadraticCurveTo(cx + s * w * 0.8, bodyTop + 48, cx + s * w * 0.5, bodyTop + 34);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+  // 尻尾 (Lv2+)
+  if (lv >= 2) {
+    const wag = reduceMotion ? 0 : Math.sin(t * 2.6) * 14;
+    ctx.strokeStyle = "#a03050"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx + w * 0.5, baseY - 16);
+    ctx.quadraticCurveTo(cx + w * 1.6, baseY - 4, cx + w * 1.7 + wag, baseY - 42 - lv * 6);
+    ctx.stroke();
+    ctx.fillStyle = "#a03050";
+    ctx.beginPath();
+    const tx = cx + w * 1.7 + wag, ty = baseY - 42 - lv * 6;
+    ctx.moveTo(tx - 6, ty + 4); ctx.lineTo(tx + 7, ty); ctx.lineTo(tx - 2, ty - 8);
+    ctx.closePath(); ctx.fill();
+  }
+  // 体: マント風
+  const grad = ctx.createLinearGradient(cx - w, bodyTop, cx + w * 1.4, baseY);
+  if (lv >= 5) { grad.addColorStop(0, "#e06478"); grad.addColorStop(.5, "#b32b48"); grad.addColorStop(1, "#3d1150"); }
+  else { grad.addColorStop(0, "#d4607a"); grad.addColorStop(.55, "#a83a54"); grad.addColorStop(1, "#4a1a5e"); }
+  ctx.fillStyle = lv === 1 ? "#a83a54" : grad; // Lv1はベタ塗りのチープ表現
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.62, bodyTop);
+  ctx.quadraticCurveTo(cx - w * 1.2, baseY - 14, cx - w * 0.95, baseY);
+  // ギザギザの裾
+  const jags = 4 + Math.round(p.detail * 3);
+  for (let i = 0; i <= jags; i++) {
+    const jx = cx - w * 0.95 + ((w * 1.9) / jags) * i;
+    ctx.lineTo(jx, baseY + (i % 2 === 0 ? 0 : -10));
+  }
+  ctx.quadraticCurveTo(cx + w * 1.2, baseY - 14, cx + w * 0.62, bodyTop);
+  ctx.closePath(); ctx.fill();
+  if (lv <= 3) { ctx.strokeStyle = "rgba(20,6,14,.8)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
+  else if (lv >= 4) { // 下からの業火のリムライト
+    ctx.strokeStyle = "rgba(255,120,60,.45)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.9, baseY - 2);
+    ctx.quadraticCurveTo(cx, baseY + 6, cx + w * 0.9, baseY - 2);
+    ctx.stroke();
+  }
+  // 腕組み
+  ctx.strokeStyle = "rgba(30,8,20,.5)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+  const ay = bodyTop + p.bodyH * 0.32;
+  ctx.beginPath(); ctx.moveTo(cx - w * 0.5, ay - 4); ctx.quadraticCurveTo(cx, ay + 10, cx + w * 0.5, ay - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - w * 0.5, ay + 6); ctx.quadraticCurveTo(cx, ay - 6, cx + w * 0.5, ay + 6); ctx.stroke();
+}
+function drawDevilHead(ctx, cx, headY, p, lv, t) {
+  const r = p.headR;
+  // ツノ: レベルで成長
+  const hornH = 6 + lv * 6;
+  ctx.fillStyle = lv >= 4 ? "#e8d5b0" : "#d8bfa0";
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + s * r * 0.5, headY - r * 0.72);
+    ctx.quadraticCurveTo(cx + s * r * (0.7 + lv * 0.08), headY - r - hornH * 0.6, cx + s * r * (0.55 + lv * 0.1), headY - r - hornH);
+    ctx.quadraticCurveTo(cx + s * r * 0.85, headY - r * 0.85, cx + s * r * 0.72, headY - r * 0.6);
+    ctx.closePath(); ctx.fill();
+  }
+  // 顔
+  const skin = ctx.createRadialGradient(cx - r * 0.35, headY - r * 0.35, r * 0.2, cx, headY, r * 1.15);
+  if (lv >= 5) { skin.addColorStop(0, "#f2889a"); skin.addColorStop(1, "#8e2340"); }
+  else if (lv >= 3) { skin.addColorStop(0, "#d85a4a"); skin.addColorStop(1, "#7a1a28"); }
+  else { skin.addColorStop(0, "#f5c9c0"); skin.addColorStop(1, "#c08578"); }
+  ctx.fillStyle = lv === 1 ? "#e0a898" : skin;
+  ctx.beginPath(); ctx.arc(cx, headY, r, 0, Math.PI * 2); ctx.fill();
+  if (lv <= 3) { ctx.strokeStyle = "rgba(40,10,20,.8)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
+  else if (lv >= 4) {
+    ctx.strokeStyle = "rgba(255,150,120,.5)"; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(cx, headY, r - 1, Math.PI * 0.55, Math.PI * 1.2); ctx.stroke();
+    ctx.fillStyle = "rgba(255,220,210,.25)";
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.35, headY - r * 0.5, r * 0.4, r * 0.2, -0.5, 0, Math.PI * 2); ctx.fill();
+  }
+  // 髪: 乱れ髪
+  ctx.fillStyle = "#2e1638";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.95, headY - r * 0.1);
+  const spikes = 5 + lv;
+  for (let i = 0; i <= spikes; i++) {
+    const a = Math.PI + (i / spikes) * Math.PI;
+    const rr = r * (i % 2 === 0 ? 1.12 : 0.85);
+    ctx.lineTo(cx + Math.cos(a) * rr, headY - r * 0.1 + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+  // 目: つり目。Lv4+ で発光
+  const blink = !reduceMotion && Math.sin(t * 0.7 + 1) > 0.99;
+  for (const s of [-1, 1]) {
+    if (blink) {
+      ctx.strokeStyle = "#3a0f1c"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + s * r * 0.22, headY - r * 0.02); ctx.lineTo(cx + s * r * 0.55, headY - r * 0.12); ctx.stroke();
+    } else {
+      ctx.save();
+      if (lv >= 4) { ctx.shadowColor = "#ffd24a"; ctx.shadowBlur = 10; }
+      ctx.fillStyle = lv >= 4 ? "#ffd24a" : "#fff";
+      ctx.beginPath();
+      ctx.moveTo(cx + s * r * 0.2, headY - r * 0.02);
+      ctx.lineTo(cx + s * r * 0.58, headY - r * 0.18);
+      ctx.lineTo(cx + s * r * 0.52, headY + r * 0.08);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (lv < 4) {
+        ctx.fillStyle = "#7a1430";
+        ctx.beginPath(); ctx.arc(cx + s * r * 0.4, headY - r * 0.04, r * 0.07, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  // 口: ニヤリ + 牙
+  ctx.strokeStyle = "#3a0f1c"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.3, headY + r * 0.34);
+  ctx.quadraticCurveTo(cx + r * 0.1, headY + r * 0.55, cx + r * 0.42, headY + r * 0.28);
+  ctx.stroke();
+  if (lv >= 2) {
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(cx + r * 0.18, headY + r * 0.42);
+    ctx.lineTo(cx + r * 0.26, headY + r * 0.58);
+    ctx.lineTo(cx + r * 0.33, headY + r * 0.38);
+    ctx.closePath(); ctx.fill();
+  }
+}
+/* ---------- 悪魔 最終形態 (Lv5): 大魔王・疑似3D ---------- */
+function drawDevilUltimate(ctx, W, H, t, lv = 5) {
+  const cx = W / 2;
+  const dim = 1 - drawWeaken * 0.7;
+  const breathe = reduceMotion ? 0 : Math.sin(t * 1.3) * 2;
+  const flap = reduceMotion ? 0 : Math.sin(t * 1.8) * 7;
+  const bodyHi = "#55708f", bodyMid = "#35455c", bodyLo = "#1c2635";
+  const clawCol = "#b0392f";
+
+  /* 魔界の気配 */
+  const bg = ctx.createRadialGradient(cx, 200, 10, cx, 190, 240);
+  bg.addColorStop(0, `rgba(212,64,90,${0.20 * dim})`);
+  bg.addColorStop(0.55, `rgba(109,42,142,${0.12 * dim})`);
+  bg.addColorStop(1, "rgba(20,8,20,0)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  // 足元の溶岩光 (Lv4+)
+  if (lv >= 4) {
+    const lava = ctx.createRadialGradient(cx, 292, 5, cx, 292, 110);
+    lava.addColorStop(0, `rgba(255,110,50,${(lv === 5 ? 0.30 : 0.16) * dim})`);
+    lava.addColorStop(1, "rgba(255,110,50,0)");
+    ctx.fillStyle = lava;
+    ctx.beginPath(); ctx.ellipse(cx, 292, 110, 30, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* 尻尾（体の奥へ） */
+  const wag = reduceMotion ? 0 : Math.sin(t * 1.5) * 10;
+  ctx.strokeStyle = bodyLo; ctx.lineWidth = 6; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx + 18, 232);
+  ctx.quadraticCurveTo(cx + 90, 262, cx + 104 + wag, 210);
+  ctx.stroke();
+  ctx.fillStyle = bodyLo;
+  ctx.beginPath();
+  const tx = cx + 104 + wag, ty = 210;
+  ctx.moveTo(tx - 8, ty + 5); ctx.lineTo(tx + 9, ty - 1); ctx.lineTo(tx - 2, ty - 11);
+  ctx.closePath(); ctx.fill();
+
+  /* 翼: 大きく広げたコウモリ翼 (Lv4+) */
+  if (lv >= 4) for (const s of [-1, 1]) {
+    const wk = lv === 5 ? 1 : 0.75;
+    ctx.save();
+    ctx.translate(cx, 150 + breathe * 0.4);
+    ctx.scale(s * wk, wk);
+    const wg = ctx.createLinearGradient(0, 0, 130, -80);
+    wg.addColorStop(0, "#2a3448"); wg.addColorStop(1, "#141b2a");
+    ctx.fillStyle = wg;
+    ctx.beginPath();
+    ctx.moveTo(14, -6);
+    // 上縁: 肩→翼峰→先端
+    ctx.quadraticCurveTo(60, -86 - flap, 122, -96 - flap);
+    // 膜のスカラップ（指骨の間のたわみ）
+    ctx.quadraticCurveTo(128, -60 - flap * 0.7, 116, -34 - flap * 0.5);
+    ctx.quadraticCurveTo(96, -40 - flap * 0.4, 88, -12 - flap * 0.3);
+    ctx.quadraticCurveTo(70, -16 - flap * 0.2, 58, 14);
+    ctx.quadraticCurveTo(38, 6, 20, 22);
+    ctx.closePath(); ctx.fill();
+    // 指骨
+    ctx.strokeStyle = "rgba(10,14,24,.8)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+    for (const [ex, ey] of [[116, -34], [88, -12], [58, 14]]) {
+      ctx.beginPath();
+      ctx.moveTo(16, -4);
+      ctx.quadraticCurveTo((16 + ex) * 0.55, (ey - 70 - flap) * 0.5, ex, ey - flap * 0.4);
+      ctx.stroke();
+    }
+    // 翼の縁のリムライト
+    ctx.strokeStyle = `rgba(120,150,190,${0.35 * dim})`; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(14, -6);
+    ctx.quadraticCurveTo(60, -86 - flap, 122, -96 - flap);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* 影 */
+  ctx.fillStyle = "rgba(0,0,0,.4)";
+  ctx.beginPath(); ctx.ellipse(cx, 296, 88, 11, 0, 0, Math.PI * 2); ctx.fill();
+
+  /* 脚: 蹲踞の後脚（獣脚） */
+  for (const s of [-1, 1]) {
+    const lgx = cx + s * 34;
+    const lg = ctx.createRadialGradient(lgx - 6, 238, 4, lgx, 246, 34);
+    lg.addColorStop(0, bodyHi); lg.addColorStop(0.55, bodyMid); lg.addColorStop(1, bodyLo);
+    ctx.fillStyle = lg;
+    ctx.beginPath(); ctx.ellipse(lgx, 246 + breathe * 0.3, 26, 32, s * 0.25, 0, Math.PI * 2); ctx.fill();
+    // すね→足
+    ctx.strokeStyle = bodyMid; ctx.lineWidth = 13; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(lgx + s * 8, 262);
+    ctx.quadraticCurveTo(lgx + s * 22, 284, lgx + s * 14, 290);
+    ctx.stroke();
+    // 足の鉤爪
+    ctx.fillStyle = "#dfe3e8";
+    for (let c = -1; c <= 1; c++) {
+      ctx.beginPath();
+      ctx.moveTo(lgx + s * 14 + c * 6, 288);
+      ctx.lineTo(lgx + s * 14 + c * 8, 297);
+      ctx.lineTo(lgx + s * 14 + c * 2, 291);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  /* 胴: 前傾の筋肉塊 */
+  const torsoG = ctx.createLinearGradient(cx - 44, 160, cx + 40, 240);
+  torsoG.addColorStop(0, bodyHi); torsoG.addColorStop(0.55, bodyMid); torsoG.addColorStop(1, bodyLo);
+  ctx.fillStyle = torsoG;
+  ctx.beginPath();
+  ctx.moveTo(cx - 44, 172 + breathe);           // 左肩(僧帽筋の盛り)
+  ctx.quadraticCurveTo(cx, 148 + breathe, cx + 44, 170 + breathe); // 首元
+  ctx.quadraticCurveTo(cx + 52, 200, cx + 30, 236);
+  ctx.quadraticCurveTo(cx, 248, cx - 28, 236);
+  ctx.quadraticCurveTo(cx - 54, 202, cx - 44, 172 + breathe);
+  ctx.closePath(); ctx.fill();
+  // 胸筋・腹筋の彫り
+  ctx.strokeStyle = "rgba(10,16,26,.55)"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.arc(cx - 16, 190 + breathe, 14, Math.PI * 0.1, Math.PI * 0.95); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx + 16, 190 + breathe, 14, Math.PI * 0.05, Math.PI * 0.9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 206 + breathe); ctx.lineTo(cx, 238); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 10, 216); ctx.lineTo(cx + 10, 216); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 10, 228); ctx.lineTo(cx + 10, 228); ctx.stroke();
+  // 下からの溶岩リムライト
+  ctx.strokeStyle = `rgba(255,120,60,${0.4 * dim})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - 26, 238); ctx.quadraticCurveTo(cx, 248, cx + 28, 237); ctx.stroke();
+
+  /* 地に着く豪腕 + 開いた鉤爪（Lv3は左右両方、Lv4+は左のみで右腕を掲げる） */
+  for (const sArm of (lv >= 4 ? [1] : [1, -1])) {
+    ctx.save();
+    if (sArm === -1) { ctx.translate(cx * 2, 0); ctx.scale(-1, 1); }
+    ctx.strokeStyle = bodyMid; ctx.lineWidth = 20; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx - 40, 178 + breathe);
+    ctx.quadraticCurveTo(cx - 74, 210, cx - 72, 262);
+    ctx.stroke();
+    ctx.strokeStyle = bodyLo; ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.moveTo(cx - 66, 240);
+    ctx.lineTo(cx - 72, 268);
+    ctx.stroke();
+    // 手の甲
+    const handG = ctx.createRadialGradient(cx - 76, 272, 3, cx - 72, 276, 22);
+    handG.addColorStop(0, bodyMid); handG.addColorStop(1, bodyLo);
+    ctx.fillStyle = handG;
+    ctx.beginPath(); ctx.ellipse(cx - 72, 276, 20, 13, 0.2, 0, Math.PI * 2); ctx.fill();
+    // 前方へ扇に開く赤爪（手前に迫る遠近感）
+    ctx.fillStyle = clawCol;
+    for (let c = 0; c < 4; c++) {
+      const ca = -0.55 + c * 0.34;
+      const bx2 = cx - 72 + Math.cos(Math.PI / 2 + ca) * -18;
+      const by2 = 276 + Math.sin(Math.PI / 2 + ca) * 12;
+      ctx.beginPath();
+      ctx.moveTo(bx2 - 4, by2 - 2);
+      ctx.quadraticCurveTo(bx2 - 2 - c, by2 + 16 + c * 2, bx2 + 6, by2 + 20 + c * 2);
+      ctx.lineTo(bx2 + 5, by2 + 2);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* 掲げて爪を見せる腕 (Lv4+) */
+  if (lv >= 4) {
+    ctx.strokeStyle = bodyMid; ctx.lineWidth = 17; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx + 40, 176 + breathe);
+    ctx.quadraticCurveTo(cx + 72, 168, cx + 82, 140 + breathe);
+    ctx.stroke();
+    ctx.fillStyle = bodyMid;
+    ctx.beginPath(); ctx.ellipse(cx + 86, 130 + breathe, 11, 13, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = clawCol;
+    for (let c = 0; c < 4; c++) {
+      const ca = -1.9 + c * 0.5;
+      ctx.beginPath();
+      const bx3 = cx + 86 + Math.cos(ca) * 10, by3 = 128 + breathe + Math.sin(ca) * 12;
+      ctx.moveTo(bx3, by3);
+      ctx.quadraticCurveTo(bx3 + Math.cos(ca) * 14, by3 + Math.sin(ca) * 16 - 4, bx3 + Math.cos(ca) * 17, by3 + Math.sin(ca) * 19);
+      ctx.lineTo(bx3 + Math.cos(ca + 0.35) * 8, by3 + Math.sin(ca + 0.35) * 9);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  /* 頭部 */
+  const hy = 128 + breathe;
+  // 鬣（たてがみ）
+  ctx.fillStyle = "#171225";
+  ctx.beginPath();
+  for (let i = 0; i <= 12; i++) {
+    const a = Math.PI * (0.9 + (i / 12) * 1.2);
+    const rr = 30 + (i % 2) * 7;
+    const px = cx + Math.cos(a) * rr, py = hy + 6 + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath(); ctx.fill();
+  // 角: 縞模様の巻き角（レベルで伸びる）
+  for (const s of [-1, 1]) {
+    const hk = 0.62 + (lv - 3) * 0.19; // 3:0.62 → 5:1.0
+    ctx.save();
+    ctx.translate(cx + s * 13, hy - 16);
+    ctx.scale(s * hk, hk);
+    const hg = ctx.createLinearGradient(0, 0, 40, -70);
+    hg.addColorStop(0, "#a88d58"); hg.addColorStop(0.5, "#d8c08a"); hg.addColorStop(1, "#efe2bc");
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.moveTo(-7, 4);
+    ctx.quadraticCurveTo(2, -34, 34, -62);   // 外縁
+    ctx.quadraticCurveTo(40, -64, 38, -56);  // 先端
+    ctx.quadraticCurveTo(16, -26, 9, 8);     // 内縁
+    ctx.closePath(); ctx.fill();
+    // 節の縞
+    ctx.strokeStyle = "rgba(90,72,38,.7)"; ctx.lineWidth = 2;
+    for (let k = 1; k <= 5; k++) {
+      const kt = k / 6;
+      const kx = -7 + (34 + 7) * kt * 0.9;
+      const ky = 4 - (4 + 58) * kt;
+      ctx.beginPath();
+      ctx.moveTo(kx - 4, ky + 6);
+      ctx.quadraticCurveTo(kx + 3, ky + 2, kx + 9, ky + 7);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // 顔: 赤
+  const faceG = ctx.createRadialGradient(cx - 7, hy - 8, 4, cx, hy, 27);
+  faceG.addColorStop(0, "#c84438"); faceG.addColorStop(0.65, "#9c2820"); faceG.addColorStop(1, "#5c0f14");
+  ctx.fillStyle = faceG;
+  ctx.beginPath();
+  ctx.moveTo(cx - 22, hy - 14);
+  ctx.quadraticCurveTo(cx, hy - 26, cx + 22, hy - 14);
+  ctx.quadraticCurveTo(cx + 26, hy + 6, cx + 12, hy + 22);
+  ctx.quadraticCurveTo(cx, hy + 28, cx - 12, hy + 22);
+  ctx.quadraticCurveTo(cx - 26, hy + 6, cx - 22, hy - 14);
+  ctx.closePath(); ctx.fill();
+  // 尖り耳
+  ctx.fillStyle = "#9c2820";
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 20, hy - 4);
+    ctx.lineTo(cx + s * 34, hy - 12);
+    ctx.lineTo(cx + s * 21, hy + 6);
+    ctx.closePath(); ctx.fill();
+  }
+  // 眼: 白熱光
+  ctx.save();
+  ctx.shadowColor = "#fff"; ctx.shadowBlur = (lv === 5 ? 12 : 6) * dim;
+  ctx.fillStyle = `rgba(255,255,255,${0.75 + 0.25 * dim})`;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 4, hy - 6);
+    ctx.lineTo(cx + s * 15, hy - 11);
+    ctx.lineTo(cx + s * 13, hy - 2);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  // 怒りの眉間皺
+  ctx.strokeStyle = "#4a0a10"; ctx.lineWidth = 2; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(cx - 6, hy - 12); ctx.lineTo(cx, hy - 8); ctx.lineTo(cx + 6, hy - 12); ctx.stroke();
+  // 口: 咆哮 + 牙
+  ctx.fillStyle = "#2a0508";
+  ctx.beginPath(); ctx.ellipse(cx, hy + 14, 13, 9 + (reduceMotion ? 0 : Math.sin(t * 2.2) * 1.5), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#f2ede2";
+  for (let c = -2; c <= 2; c++) { // 上牙
+    ctx.beginPath();
+    ctx.moveTo(cx + c * 5 - 2, hy + 7);
+    ctx.lineTo(cx + c * 5, hy + 13 + (Math.abs(c) === 2 ? 3 : 0));
+    ctx.lineTo(cx + c * 5 + 2, hy + 7);
+    ctx.closePath(); ctx.fill();
+  }
+  for (let c = -1; c <= 1; c++) { // 下牙
+    ctx.beginPath();
+    ctx.moveTo(cx + c * 6 - 2, hy + 21);
+    ctx.lineTo(cx + c * 6, hy + 16);
+    ctx.lineTo(cx + c * 6 + 2, hy + 21);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* スペキュラ（筋肉のテカリ） */
+  ctx.fillStyle = "rgba(180,205,235,.22)";
+  ctx.beginPath(); ctx.ellipse(cx - 24, 180 + breathe, 9, 4, 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + 24, 179 + breathe, 9, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx - 60, 220, 6, 10, 0.5, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawRock(ctx, cx, y, w, lv, t) {
+  const g = ctx.createLinearGradient(cx, y - 20, cx, y + 12);
+  g.addColorStop(0, "#4a3550"); g.addColorStop(1, "#241528");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(cx - w, y + 8);
+  ctx.lineTo(cx - w * 0.7, y - 12);
+  ctx.lineTo(cx - w * 0.3, y - 6);
+  ctx.lineTo(cx, y - 16);
+  ctx.lineTo(cx + w * 0.4, y - 8);
+  ctx.lineTo(cx + w * 0.75, y - 14);
+  ctx.lineTo(cx + w, y + 8);
+  ctx.closePath(); ctx.fill();
+  if (lv >= 4) { // 溶岩の割れ目
+    ctx.strokeStyle = `rgba(255,120,60,${0.5 + (reduceMotion ? 0 : Math.sin(t * 3) * 0.25)})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.5, y + 4); ctx.lineTo(cx - w * 0.2, y - 6); ctx.lineTo(cx + w * 0.1, y);
+    ctx.moveTo(cx + w * 0.3, y + 2); ctx.lineTo(cx + w * 0.55, y - 8);
+    ctx.stroke();
+  }
+}
+
+/* ---------- パーティクル ---------- */
+function drawParticles(ctx, kind, lv, t, W, H) {
+  if (reduceMotion || lv < 1) return;
+  const n = Math.round(lv * 4 * (1 - drawWeaken * 0.85));
+  if (n < 1) return;
+  for (let i = 0; i < n; i++) {
+    const seed = i * 37.7;
+    const speed = 0.12 + (i % 5) * 0.03;
+    const ph = ((t * speed + seed) % 1);
+    const x = W / 2 + Math.sin(seed) * (60 + (i % 4) * 20) + Math.sin(t + seed) * 8;
+    let y, alpha, size;
+    if (kind === "saint") { // 光の粒: ゆっくり降る
+      y = ph * H;
+      alpha = Math.sin(ph * Math.PI) * 0.6;
+      size = 1.5 + (i % 3);
+      ctx.fillStyle = `rgba(240,217,160,${alpha})`;
+    } else {              // 火の粉: 立ち上る
+      y = H - ph * H;
+      alpha = Math.sin(ph * Math.PI) * 0.55;
+      size = 1.5 + (i % 3);
+      ctx.fillStyle = `rgba(${i % 2 ? "212,64,90" : "255,140,80"},${alpha})`;
+    }
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+/* ---------- アニメーションループ ---------- */
+/* ---------- オープニング ---------- */
+(function () {
+  const op = $("opening"), fx = $("openingFx");
+  const octx = fx.getContext("2d");
+  let opAlive = true;
+  function size() { fx.width = innerWidth; fx.height = innerHeight; }
+  size(); addEventListener("resize", size);
+  // 左=金の光珠、右=緋の火の粉が立ちのぼる
+  const parts = [];
+  for (let i = 0; i < 46; i++) {
+    const gold = i % 2 === 0;
+    parts.push({ gold, x: Math.random(), y: Math.random(), s: 1 + Math.random() * 2.5, v: 0.0006 + Math.random() * 0.0014, ph: Math.random() * 6.28 });
+  }
+  function tick(ms) {
+    if (!opAlive) return;
+    const w = fx.width, h = fx.height;
+    octx.clearRect(0, 0, w, h);
+    for (const p of parts) {
+      p.y -= p.v * (p.gold ? 1 : 1.6);
+      if (p.y < -0.02) p.y = 1.02;
+      const x = (p.gold ? p.x * 0.5 : 0.5 + p.x * 0.5) * w + Math.sin(ms * 0.001 + p.ph) * 14;
+      octx.globalAlpha = 0.2 + 0.4 * Math.sin(ms * 0.002 + p.ph) ** 2;
+      octx.fillStyle = p.gold ? "#f0d9a0" : "#f08a9b";
+      octx.beginPath(); octx.arc(x, p.y * h, p.s, 0, Math.PI * 2); octx.fill();
+    }
+    octx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+  if (!reduceMotion) requestAnimationFrame(tick);
+  function dismiss() {
+    op.classList.add("done");
+    setTimeout(() => { op.classList.add("hidden"); opAlive = false; }, 850);
+  }
+  op.addEventListener("pointerdown", dismiss);
+  setTimeout(dismiss, reduceMotion ? 1500 : 4600);
+})();
+
+/* ---------- アニメーションループ ---------- */
+let lastDraw = 0;
+function loop(ms) {
+  const t = ms / 1000;
+  const appVisible = me && !$("app").classList.contains("hidden");
+  if (appVisible && (!reduceMotion || ms - lastDraw > 500)) {
+    lastDraw = ms;
+    drawCharacter(saintC, "saint", curSaintLv, t);
+    drawCharacter(devilC, "devil", curDevilLv, t);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>

@@ -1,0 +1,7 @@
+{
+  "name": "guilty-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ギルティ 〜罪と罰と幸福〜 二人制の約束トラッカー"
+}
