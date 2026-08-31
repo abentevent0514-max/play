@@ -320,7 +320,7 @@
 
       <section class="shrine saint">
         <h2>約束の仏</h2>
-        <p class="lv">聖人レベル <b id="saintLv">0</b><span> / 10</span></p>
+        <p class="lv">聖人レベル <b id="saintLv">0</b><span>（−4〜+5）</span></p>
         <canvas class="stage" id="saintCanvas" width="280" height="320" aria-label="聖人キャラクター"></canvas>
         <p class="poke-hint">タップすると反応します</p>
         <div class="gauge">
@@ -348,7 +348,7 @@
 
       <section class="shrine devil">
         <h2>遅刻の悪魔</h2>
-        <p class="lv">悪魔レベル <b id="devilLv">0</b><span> / 10</span></p>
+        <p class="lv">悪魔レベル <b id="devilLv">0</b><span>（−4〜+5）</span></p>
         <canvas class="stage" id="devilCanvas" width="280" height="320" aria-label="悪魔キャラクター"></canvas>
         <p class="poke-hint">タップすると反応します</p>
         <div class="gauge">
@@ -400,37 +400,39 @@
    （カウンタの直接インクリメントはしない = 競合しない）。
    ============================================================ */
 
-const MAX_LV = 10;
-const THRESHOLDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // 1ポイント = 1レベル（Lv10 = 10ポイント）
+/* レベルは −4〜+5 の天秤。0スタート。聖人と悪魔は常に鏡写し（符号が逆）。 */
+const LV_MIN = -4, LV_MAX = 5;
+const clampLv = (v) => Math.max(LV_MIN, Math.min(LV_MAX, v));
+const fmtLv = (lv) => (lv > 0 ? "+" : "") + lv;
 const LS_ACC = "karmacho.account";
 const LS_CELE = "karmacho.celebrated."; // + accId.type -> 最終演出済みレベル
 
+/* index 0..9 がレベル −4..+5 に対応 */
 const SAINT_EVENTS = [
+  "徳が底をついた。極楽の入口で入場を断られた。",
+  "仏があなたの顔を思い出せなくなってきた。",
+  "積んだ徳が音を立てて崩れていく。財布も軽い。",
+  "後光が薄れてきた。ハトが少し距離を取る。",
   "まだ何者でもない。最初の一善を待っている。",
-  "あなたは道端で金貨を拾った。徳が芽生えている。",
-  "コンビニの募金箱に小銭を入れた。店員がにっこりした。",
-  "日ごろの行いが認められ、町の有名人になった。",
-  "子どもとハトがあなたの後をついてくるようになった。",
+  "道端で金貨を拾った。徳が芽生えている。",
   "頭上にうっすら後光が差しはじめた。",
-  "触れた自販機がぜんぶ当たりを出すようになった。",
   "悟りの入口。あらゆる待ち合わせに10分前へ着く体になった。",
   "千の手があなたを手伝いはじめた。家事が一瞬で終わる。",
-  "時間そのものがあなたに敬語を使いはじめた。",
   "あなたは全宇宙を統べる仏となった。時間のほうがあなたに合わせる。",
 ];
 const DEVIL_EVENTS = [
+  "浄化されすぎて羽衣が生えかけている。もはや天使。",
+  "悪魔なのに約束を守ってしまう体になってきた。",
+  "業火が鎮まり、魔界の同僚に心配されている。",
+  "誠実の光でツノが少し縮んだ。",
   "まだ何者でもない。最初の遅刻を待っている。",
   "ポケットから小銭が消えた。何かが芽生えている。",
-  "目覚まし時計があなたを二度見した。",
-  "「あいつはまた遅れる」と町で噂になった。",
   "頭に小さなツノが生えた。鏡を見るのが少し怖い。",
-  "影が本体より5分遅れて動くようになった。",
   "背中に翼の気配。電車があなたを見捨てて発車する。",
   "あなたの周囲だけ時計が歪みはじめた。魔界の引力。",
-  "約束という概念があなたを避けて通るようになった。",
-  "魔界からスカウトが来た。待遇は「時間無制限」。",
   "あなたは遅刻を司る大魔王として魔界に君臨した。定刻はもう意味を持たない。",
 ];
+const eventText = (kind, lv) => (kind === "saint" ? SAINT_EVENTS : DEVIL_EVENTS)[lv - LV_MIN];
 
 const $ = (id) => document.getElementById(id);
 let me = null;            // {id, name}
@@ -438,11 +440,6 @@ let accounts = [];        // registry の写し
 let requests = [];        // requests の写し
 const clientId = "c" + Math.random().toString(36).slice(2, 10);
 
-function levelOf(n) {
-  let lv = 0;
-  for (const t of THRESHOLDS) if (n >= t) lv++;
-  return lv;
-}
 function fmtTime(ms) {
   const d = new Date(ms);
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -508,6 +505,7 @@ $("gateForm").addEventListener("submit", async (e) => {
   const err = $("gateErr");
   err.textContent = "";
   if (!name) { err.textContent = "名前を入力してください。"; return; }
+
   try {
     const r = await api("register", { name });
     login(r.account);
@@ -551,7 +549,7 @@ $("resetBtn").addEventListener("click", async () => {
     showScreen();
     refresh();
   } catch (e) {
-    btn.textContent = "失敗しました。もう一度タップで再試行";
+    btn.textContent = "失敗: " + ((e && (e.code || e.message)) || e) + " — もう一度タップ";
   }
   resetArmed = 0;
 });
@@ -585,7 +583,7 @@ function pointsFor(accId) {
     if (r.type === "kept") { kept++; bal++; }
     else if (r.type === "late") { late++; bal--; }
   }
-  return { kept, late, virtue: Math.max(0, bal), karma: Math.max(0, -bal) };
+  return { kept, late, bal };
 }
 function nameOf(id) {
   const a = accounts.find((a) => a.id === id);
@@ -598,18 +596,16 @@ let curSaintWeaken = 0, curDevilWeaken = 0;   // 相手側の成長による弱�
 function renderApp() {
   if (!me || !$("app") || $("app").classList.contains("hidden")) { renderRoster(); return; }
 
-  const { kept, late, virtue, karma } = pointsFor(me.id);
-  const sLv = levelOf(virtue), dLv = levelOf(karma);
+  const { kept, late, bal } = pointsFor(me.id);
+  const sLv = clampLv(bal), dLv = clampLv(-bal);
   curSaintLv = sLv; curDevilLv = dLv;
-  curSaintWeaken = Math.min(1, karma / 10);   // 業の高まりが仏を蝕む
-  curDevilWeaken = Math.min(1, virtue / 10);  // 徳の高まりが悪魔を浄化する
+  curSaintWeaken = Math.min(1, Math.max(0, -bal) / 4); // 業の高まりが仏を蝕む
+  curDevilWeaken = Math.min(1, Math.max(0, bal) / 4);  // 徳の高まりが悪魔を浄化する
 
-  renderGauge("saint", virtue, sLv, `（累計 守${kept}・遅${late}）`);
-  renderGauge("devil", karma, dLv, `（累計 遅${late}・守${kept}）`);
-  $("saintEvent").textContent = SAINT_EVENTS[sLv] +
-    (karma > 0 ? ` 悪魔の影が徳を蝕んでいる……` : "");
-  $("devilEvent").textContent = DEVIL_EVENTS[dLv] +
-    (virtue > 0 ? ` 誠実の光が業を焼いている……` : "");
+  renderGauge("saint", sLv, `（累計 守${kept}・遅${late}）`);
+  renderGauge("devil", dLv, `（累計 遅${late}・守${kept}）`);
+  $("saintEvent").textContent = eventText("saint", sLv);
+  $("devilEvent").textContent = eventText("devil", dLv);
 
   maybeCelebrate("saint", sLv, kept + late === 0);
   maybeCelebrate("devil", dLv, kept + late === 0);
@@ -651,11 +647,11 @@ function renderApp() {
   const partner = accounts.find((a) => a.id !== me.id);
   if (partner) {
     const pc = pointsFor(partner.id);
-    const pSLv = levelOf(pc.virtue);
-    const pDLv = levelOf(pc.karma);
+    const pSLv = clampLv(pc.bal);
+    const pDLv = clampLv(-pc.bal);
     $("partnerBox").innerHTML =
       `<b>${esc(partner.name)}</b> の現在<br>` +
-      `<span class="chip">聖人 Lv${pSLv}（守${pc.kept}） ／ 悪魔 Lv${pDLv}（遅${pc.late}）</span>`;
+      `<span class="chip">聖人 Lv${fmtLv(pSLv)}（守${pc.kept}） ／ 悪魔 Lv${fmtLv(pDLv)}（遅${pc.late}）</span>`;
   } else {
     $("partnerBox").textContent = "相方はまだ登録されていません。";
   }
@@ -680,13 +676,10 @@ function renderApp() {
   }
 }
 
-function renderGauge(kind, count, lv, extra) {
-  const nextT = lv >= MAX_LV ? null : THRESHOLDS[lv];
-  const prevT = lv === 0 ? 0 : THRESHOLDS[lv - 1];
-  const pct = nextT === null ? 100 : Math.round(((count - prevT) / (nextT - prevT)) * 100);
-  $(kind + "Lv").textContent = lv;
-  $(kind + "Nums").textContent =
-    (nextT === null ? `${count}（極まっている）` : `${count} / ${nextT}`) + (extra || "");
+function renderGauge(kind, lv, extra) {
+  const pct = ((lv - LV_MIN) / (LV_MAX - LV_MIN)) * 100; // -4=左端, +5=右端
+  $(kind + "Lv").textContent = fmtLv(lv);
+  $(kind + "Nums").textContent = `Lv ${fmtLv(lv)}` + (extra || "");
   $(kind + "Fill").style.width = Math.max(0, Math.min(100, pct)) + "%";
 }
 
@@ -696,7 +689,7 @@ function maybeCelebrate(kind, lv, silent) {
   const seen = parseInt(localStorage.getItem(key) || "0", 10);
   if (lv > seen) {
     localStorage.setItem(key, String(lv));
-    if (lv > 0 && !silent) showFanfare(kind, lv, "up");
+    if (!silent) showFanfare(kind, lv, "up");
   } else if (lv < seen) {
     localStorage.setItem(key, String(lv));
     if (!silent) showFanfare(kind, lv, "down"); // 相手側の成長に蝕まれて転落
@@ -710,17 +703,15 @@ function showFanfare(kind, lv, dir) {
   f.classList.add((kind === "saint") === isUp ? "f-saint" : "f-devil");
   if (isUp) {
     $("ffKind").textContent = kind === "saint" ? "― 徳 が 極 ま る ―" : "― 業 が 深 ま る ―";
-    $("ffLv").textContent = (kind === "saint" ? "聖人レベル " : "悪魔レベル ") + lv;
-    $("ffStory").textContent = (kind === "saint" ? SAINT_EVENTS : DEVIL_EVENTS)[lv];
+    $("ffLv").textContent = (kind === "saint" ? "聖人レベル " : "悪魔レベル ") + fmtLv(lv);
   } else if (kind === "saint") {
     $("ffKind").textContent = "― 徳 が 蝕 ま れ る ―";
-    $("ffLv").textContent = "聖人レベル " + lv + " に転落";
-    $("ffStory").textContent = "遅刻の業が徳を蝕んだ。後光が薄れ、ハトが離れていく……";
+    $("ffLv").textContent = "聖人レベル " + fmtLv(lv) + " に転落";
   } else {
     $("ffKind").textContent = "― 業 が 浄 化 さ れ る ―";
-    $("ffLv").textContent = "悪魔レベル " + lv + " に弱体化";
-    $("ffStory").textContent = "誠実の光が業を焼き払った。ツノが少し縮んだ気がする……";
+    $("ffLv").textContent = "悪魔レベル " + fmtLv(lv) + " に弱体化";
   }
+  $("ffStory").textContent = eventText(kind, lv);
   f.classList.add("show");
   $("ffClose").focus();
 }
@@ -806,9 +797,11 @@ function drawReactionFx(ctx, kind, react, W, H) {
   ctx.restore();
 }
 
-function drawCharacterInner(c, kind, lv, t) {
+function drawCharacterInner(c, kind, dispLv, t) {
   const { ctx, W, H } = c;
   const cx = W / 2;
+  // 表示レベル(-4..+5)→描画ステージ: 0=卵, マイナス側=ちび(弱いほどチープ), プラス側=リアル形態
+  const lv = dispLv === 0 ? 0 : dispLv + 5;
   drawWeaken = kind === "saint" ? curSaintWeaken : curDevilWeaken;
   // 弱ると浮遊も小さく元気がなくなる
   const vigor = 1 - drawWeaken * 0.6;
