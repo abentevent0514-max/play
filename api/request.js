@@ -8,11 +8,9 @@ export default async function handler(req, res) {
   try {
     const d = await load();
     if (!d.accounts.some((a) => a.id === from)) return res.status(400).json({ error: "who" });
-    // 同種の pending は同時に1件まで
-    if (!d.requests.some((r) => r.status === "pending" && r.from === from && r.type === type)) {
-      d.requests.push({ id: randomUUID(), from, type, status: "pending", createdAt: Date.now() });
-      await save(d);
-    }
+    // 承認制度なし: 即時に確定レコードとして記録
+    d.requests.push({ id: randomUUID(), from, type, status: "approved", createdAt: Date.now(), decidedAt: Date.now() });
+    await save(d);
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "store" });

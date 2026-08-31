@@ -333,15 +333,11 @@
       <section class="actions">
         <div class="declare">
           <button class="btn-big btn-kept" id="btnKept" type="button">
-            約束を守った！<small>相手の承認で徳が積まれる</small>
+            約束を守った！<small>タップで徳が積まれる</small>
           </button>
           <button class="btn-big btn-late" id="btnLate" type="button">
-            遅刻しました…<small>相手の承認で業が刻まれる</small>
+            遅刻しました…<small>タップで業が刻まれる</small>
           </button>
-        </div>
-        <div class="queue">
-          <h3>承 認 待 ち</h3>
-          <ul id="queueList"></ul>
         </div>
         <p class="partner" id="partnerBox"></p>
       </section>
@@ -554,23 +550,15 @@ $("resetBtn").addEventListener("click", async () => {
   resetArmed = 0;
 });
 
-/* ---------- 申請と承認 ---------- */
-async function declare(type) {
+/* ---------- 記録（承認なしの即時反映） ---------- */
+async function declare(type, btn) {
   if (!me) return;
-  const already = requests.some((r) => r.status === "pending" && r.from === me.id && r.type === type);
-  if (already) return; // 同種の申請は同時に1件まで
+  if (btn) btn.disabled = true; // 連打防止
   try { await api("request", { from: me.id, type }); refresh(); } catch (ex) {}
+  if (btn) setTimeout(() => { btn.disabled = false; }, 800);
 }
-$("btnKept").addEventListener("click", () => declare("kept"));
-$("btnLate").addEventListener("click", () => declare("late"));
-
-async function decide(reqId, approved) {
-  if (!me) return;
-  try { await api("decide", { id: reqId, approved, by: me.id }); refresh(); } catch (ex) {}
-}
-async function withdraw(reqId) {
-  try { await api("withdraw", { id: reqId }); refresh(); } catch (ex) {}
-}
+$("btnKept").addEventListener("click", () => declare("kept", $("btnKept")));
+$("btnLate").addEventListener("click", () => declare("late", $("btnLate")));
 
 /* ---------- 集計と描画 ---------- */
 /* 天秤方式: 徳と業は1本の天秤。
@@ -610,39 +598,6 @@ function renderApp() {
   maybeCelebrate("saint", sLv, kept + late === 0);
   maybeCelebrate("devil", dLv, kept + late === 0);
 
-  // 承認キュー
-  const list = $("queueList");
-  const pend = requests.filter((r) => r.status === "pending");
-  list.innerHTML = "";
-  if (pend.length === 0) {
-    list.innerHTML = '<li class="empty">いまは何もありません。</li>';
-  } else {
-    for (const r of pend) {
-      const li = document.createElement("li");
-      const isMine = r.from === me.id;
-      const tag = r.type === "kept" ? '<span class="tag kept">約束を守った</span>' : '<span class="tag late">遅刻した</span>';
-      li.innerHTML = `<span class="req-label"><b>${esc(nameOf(r.from))}</b> ${tag}</span>`;
-      // お試しモード: 自分の申請も自己承認できる（本運用では相手のみ承認に戻す）
-      const ok = document.createElement("button");
-      ok.className = "b-approve"; ok.type = "button";
-      ok.textContent = isMine ? "自己承認（お試し）" : "承認";
-      ok.addEventListener("click", () => decide(r.id, true));
-      li.append(ok);
-      if (isMine) {
-        const c = document.createElement("button");
-        c.className = "b-reject"; c.type = "button"; c.textContent = "取り下げ";
-        c.addEventListener("click", () => withdraw(r.id));
-        li.append(c);
-      } else {
-        const ng = document.createElement("button");
-        ng.className = "b-reject"; ng.type = "button"; ng.textContent = "却下";
-        ng.addEventListener("click", () => decide(r.id, false));
-        li.append(ng);
-      }
-      list.appendChild(li);
-    }
-  }
-
   // 相手の状況
   const partner = accounts.find((a) => a.id !== me.id);
   if (partner) {
@@ -659,18 +614,15 @@ function renderApp() {
   // 因果帳（新しい順・直近30件）
   const hist = $("historyList");
   hist.innerHTML = "";
-  const done = requests.filter((r) => r.status !== "pending").slice(-30).reverse();
+  const done = requests.filter((r) => r.status === "approved").slice(-30).reverse();
   if (done.length === 0) {
     hist.innerHTML = '<li>まだ何も記されていない。</li>';
   } else {
     for (const r of done) {
       const li = document.createElement("li");
-      const cls = r.status === "rejected" ? "h-rej" : (r.type === "kept" ? "h-kept" : "h-late");
+      const cls = r.type === "kept" ? "h-kept" : "h-late";
       const verb = r.type === "kept" ? "約束を守った" : "遅刻した";
-      const suffix = r.status === "rejected"
-        ? `（${esc(nameOf(r.decidedBy))} が却下）`
-        : `（承認: ${esc(nameOf(r.decidedBy))}）`;
-      li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="${cls}">${esc(nameOf(r.from))} が ${verb} ${suffix}</span>`;
+      li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="${cls}">${esc(nameOf(r.from))} が ${verb}</span>`;
       hist.appendChild(li);
     }
   }
