@@ -217,6 +217,12 @@
   .t-used .t-label{text-decoration:line-through}
   .t-usedmark{font-size:11px;color:var(--text-dim)}
   .t-empty{color:var(--text-dim);font-size:12.5px}
+  .t-legend{font-size:10.5px;color:var(--text-dim);margin:-2px 0 10px;line-height:1.9}
+  .claim-info{
+    border:1.5px dashed rgba(212,64,90,.6);border-radius:12px;padding:10px 14px;
+    font-size:12px;color:var(--oni-soft);text-align:center;line-height:1.7;
+  }
+  .claim-info.neutral{border-color:var(--line);color:var(--text-dim)}
 
   /* ===== 履歴 ===== */
   .history{margin-top:26px}
@@ -391,6 +397,11 @@
 
     <div class="tickets">
       <h3>報 酬 と 精 算</h3>
+      <p class="t-legend">
+        報酬はレベルで決まる —
+        遅刻ペナルティ: +1 ジュース ／ +2 アイス ／ +3 コンビニ1品 ／ +4 ご飯1回分 ／ +5 3000円以上のご飯<br>
+        聖人ごほうび: +3 アイス ／ +5 5000円のご飯（精算すると双方の強さは0にリセット）
+      </p>
       <ul id="ticketList"></ul>
     </div>
 
@@ -693,7 +704,7 @@ function computeTickets() {
 
 let ticketArmed = { key: null, until: 0 };
 async function markTicketUsed(key) {
-  // (旧UIの互換) 使用記録 + リセット
+  // (旧UIの互換)
   try { await api("useticket", { key }); refresh(); } catch (e) {}
 }
 function nameOf(id) {
@@ -787,6 +798,20 @@ function renderApp() {
       }
     });
     cbox.appendChild(b);
+  }
+  // 自分の悪魔レベルで相手側に発生している報酬(情報表示)
+  const myDLv = clampLv(-bal);
+  if (myDLv >= 1 && DEVIL_REWARDS[myDLv]) {
+    const info = document.createElement("div");
+    info.className = "claim-info";
+    info.innerHTML = `⚠ あなたの悪魔Lv${fmtLv(myDLv)} — ${partner ? esc(partner.name) : "相手"} が「${esc(DEVIL_REWARDS[myDLv])}」を精算できる状態`;
+    cbox.appendChild(info);
+  }
+  if (!cbox.children.length) {
+    const info = document.createElement("div");
+    info.className = "claim-info neutral";
+    info.textContent = "いま精算できる報酬はない。レベルが動くとここに現れる。";
+    cbox.appendChild(info);
   }
 
   // 精算の記録
@@ -1067,8 +1092,9 @@ function buildFighter(kind, lv) {
     armR: (3.4 + q * 1.4) * (1 + musc * 0.55),
     legR: (3.6 + q * 1.5) * (1 + musc * 0.35),
   };
-  const skin = saint ? 0xf0cf9b : 0x9c2a22; // 悪魔は深い赤
-  const cloth = saint ? 0xd9a441 : 0x33415c;
+  // レベルで色味も変わる: 悪魔は強いほど黒ずんだ赤、弱いとピンクの小鬼。仏は弱いと衣がくすむ
+  const skin = saint ? 0xf0cf9b : (lv >= 4 ? 0x8a1f16 : lv >= 1 ? 0x9c2a22 : 0xd8887a);
+  const cloth = saint ? (lv >= 1 ? 0xd9a441 : 0xb0985e) : 0x33415c;
   const root = new T.Group();
   const rig = { root, kind, lv, P };
 
@@ -1096,8 +1122,8 @@ function buildFighter(kind, lv) {
     sash.rotation.x = Math.PI / 2;
     sash.position.y = P.torsoH * 0.35;
     hips.add(sash);
-  } else {
-    // 大胸筋と腹筋
+  } else if (lv >= 1) {
+    // 大胸筋と腹筋(強い悪魔だけ)
     for (const sg of [-1, 1]) {
       const pec = new T.Mesh(new T.SphereGeometry(chestR * 0.42, 10, 8), mat3d(skin, { roughness: 0.45 }));
       pec.position.set(sg * chestR * 0.42, P.torsoH * 0.74, chestR * 0.5);
@@ -1112,10 +1138,17 @@ function buildFighter(kind, lv) {
         hips.add(ab);
       }
     }
-    // 腰の毛皮
-    const fur = new T.Mesh(new T.CylinderGeometry(waistR * 1.12, waistR * 1.4, 7, 12, 1, true), mat3d(0x4c1e38, { side: T.DoubleSide, roughness: 0.9 }));
-    fur.position.y = 3;
-    hips.add(fur);
+    if (lv >= 2) { // 腰の毛皮
+      const fur = new T.Mesh(new T.CylinderGeometry(waistR * 1.12, waistR * 1.4, 7, 12, 1, true), mat3d(0x4c1e38, { side: T.DoubleSide, roughness: 0.9 }));
+      fur.position.y = 3;
+      hips.add(fur);
+    }
+  } else {
+    // 弱い悪魔: ぽっこりお腹のちび鬼
+    const belly = new T.Mesh(new T.SphereGeometry(waistR * 0.85, 12, 10), mat3d(skin, { roughness: 0.6 }));
+    belly.position.set(0, P.torsoH * 0.4, waistR * 0.3);
+    belly.scale.z = 0.75;
+    hips.add(belly);
   }
 
   /* 首と頭 */
@@ -1152,11 +1185,20 @@ function buildFighter(kind, lv) {
     bun.position.y = P.headR * 1.02;
     head.add(bun);
     // 後光(トーラス・発光)
-    const halo = new T.Mesh(new T.TorusGeometry(P.headR * 1.15, P.headR * 0.09, 8, 36), new T.MeshBasicMaterial({ color: 0xffe9a8 }));
-    halo.rotation.x = Math.PI / 2 - 0.18; // 頭上に浮かぶ天使輪
+    const halo = new T.Mesh(
+      new T.TorusGeometry(P.headR * (1.05 + Math.max(0, lv) * 0.09), P.headR * (0.08 + Math.max(0, lv) * 0.012), 8, 36),
+      new T.MeshBasicMaterial({ color: lv >= 4 ? 0xfff4c0 : 0xffe9a8 })
+    );
+    halo.rotation.x = Math.PI / 2 - 0.18; // 頭上に浮かぶ天使輪。レベルで大きく明るく
     halo.position.set(0, P.headR * 1.6, 0);
     head.add(halo);
     rig.halo = halo;
+    if (lv >= 2) { // 数珠の首飾り
+      const beads = new T.Mesh(new T.TorusGeometry(P.headR * 0.85, P.headR * 0.1, 8, 20), mat3d(0x6e4a2a, { roughness: 0.4 }));
+      beads.position.set(0, -P.headR * 1.1, P.headR * 0.35);
+      beads.rotation.x = 1.15;
+      head.add(beads);
+    }
     // 伏し目と微笑と白毫
     for (const sg of [-1, 1]) {
       const eye = new T.Mesh(new T.BoxGeometry(P.headR * 0.34, P.headR * 0.07, P.headR * 0.08), mat3d(0x4a3416));
@@ -1200,9 +1242,10 @@ function buildFighter(kind, lv) {
       rig.fan = fan;
     }
   } else {
-    // 巻き角(トーラスの弧) — 近くで見ても悪魔とわかる造形
+    // 巻き角(トーラスの弧)。弱い悪魔は小さなツノ
+    const hornK = lv >= 1 ? 1 : 0.5;
     for (const sg of [-1, 1]) {
-      const horn = new T.Mesh(new T.TorusGeometry(P.headR * (0.95 + q * 0.75), P.headR * 0.2, 8, 14, Math.PI * 0.62), mat3d(0xd8c08a, { roughness: 0.35 }));
+      const horn = new T.Mesh(new T.TorusGeometry(P.headR * (0.95 + q * 0.75) * hornK, P.headR * 0.2 * hornK, 8, 14, Math.PI * 0.62), mat3d(0xd8c08a, { roughness: 0.35 }));
       horn.position.set(sg * P.headR * 0.55, P.headR * 0.5, 0);
       horn.rotation.set(0.15, sg * -0.5, sg * 1.15);
       horn.castShadow = true;
@@ -1245,12 +1288,20 @@ function buildFighter(kind, lv) {
   rig.arms = {};
   for (const sg of [-1, 1]) {
     const sh = new T.Group();
-    sh.position.set(sg * P.shoulder, P.torsoH - 2, 0);
-    hips.add(sh);
+    sh.position.set(sg * P.shoulder, -2, 0); // 胸椎に付ける=上半身のひねりに追従
+    chest.add(sh);
     if (!saint) { // 三角筋の盛り
       const delt = new T.Mesh(new T.SphereGeometry(P.armR * 1.22, 10, 8), mat3d(skin, { roughness: 0.45 }));
       delt.castShadow = true;
       sh.add(delt);
+      if (lv >= 4) { // 肩のトゲ
+        for (let k2 = 0; k2 < 2; k2++) {
+          const spike = new T.Mesh(new T.ConeGeometry(P.armR * 0.35, P.armR * (1.6 - k2 * 0.5), 6), mat3d(0xd8c08a, { roughness: 0.3 }));
+          spike.position.set(sg * P.armR * (0.5 + k2 * 0.5), P.armR * (1.0 - k2 * 0.3), 0);
+          spike.rotation.z = sg * -0.7;
+          sh.add(spike);
+        }
+      }
     }
     const up = limb3d(P.armR, P.upper, saint ? cloth : skin);
     sh.add(up);
@@ -1319,27 +1370,42 @@ function buildFighter(kind, lv) {
     wingShape.quadraticCurveTo(10, -14, 0, -6);
     wingShape.closePath();
     const wg = new T.ShapeGeometry(wingShape);
-    rig.wings = {};
-    for (const sg of [-1, 1]) {
-      const wr = new T.Group();
-      wr.position.set(sg * P.shoulder * 0.22, P.torsoH * 0.95, -P.shoulder * 0.9);
-      const wing = new T.Mesh(wg, mat3d(0x241634, { side: T.DoubleSide, roughness: 0.85 }));
-      wing.scale.set(sg * (0.7 + q * 1.2), 0.7 + q * 1.2, 1);
-      wing.castShadow = true;
-      wr.add(wing);
-      hips.add(wr);
-      rig.wings[sg] = wr;
+    if (lv >= 2) { // 翼はLv+2から生える
+      rig.wings = {};
+      for (const sg of [-1, 1]) {
+        const wr = new T.Group();
+        wr.position.set(sg * P.shoulder * 0.22, -P.torsoH * 0.05, -P.shoulder * 0.9);
+        const wing = new T.Mesh(wg, mat3d(0x241634, { side: T.DoubleSide, roughness: 0.85 }));
+        wing.scale.set(sg * (0.7 + q * 1.2), 0.7 + q * 1.2, 1);
+        wing.castShadow = true;
+        wr.add(wing);
+        chest.add(wr); // 上半身のひねりに追従
+        rig.wings[sg] = wr;
+      }
     }
+    // 尻尾: 3関節チェーンでうねる
     const tail = new T.Group();
-    tail.position.set(0, 3, -waistR * 0.7);
-    const tailSeg = new T.Mesh(new T.ConeGeometry(2.4, 28, 8), mat3d(0x8e2a44));
-    tailSeg.rotation.x = Math.PI * 0.62;
-    tailSeg.position.set(0, -4, -13);
-    tail.add(tailSeg);
+    tail.position.set(0, 3, -waistR * 0.75);
+    let tp = tail;
+    rig.tailSegs = [];
+    for (let i = 0; i < 3; i++) {
+      const segG = new T.Group();
+      const len = 13 - i * 3;
+      const tube = new T.Mesh(new T.CylinderGeometry(2.6 - i * 0.7, 1.9 - i * 0.55, len, 8), mat3d(0x8e2a44));
+      tube.rotation.x = Math.PI / 2;
+      tube.position.z = -len / 2;
+      tube.castShadow = true;
+      segG.add(tube);
+      tp.add(segG);
+      rig.tailSegs.push(segG);
+      const next = new T.Group();
+      next.position.z = -len;
+      segG.add(next);
+      tp = next;
+    }
     const spade = new T.Mesh(new T.ConeGeometry(3.4, 7, 4), mat3d(0x8e2a44));
-    spade.position.set(0, 0, -27);
-    spade.rotation.x = -0.7;
-    tail.add(spade);
+    spade.rotation.x = -Math.PI / 2;
+    tp.add(spade);
     hips.add(tail);
     rig.tail = tail;
   }
@@ -1379,10 +1445,12 @@ function applyPose(rig, pose, dir, baseX, t, down, react) {
   root.scale.set(p2.sx || 1, p2.sy || 1, p2.sx || 1);
   if (rig.lv >= 5) root.scale.multiplyScalar(1.15);
 
-  // 呼吸と首の見回し
+  // 呼吸・胸椎のひねり・首の見回し(関節が連動する)
   const breath = reduceMotion ? 0 : Math.sin(t * 1.3 + (saint ? 0 : 1.2));
   rig.torso.scale.set(1 + breath * 0.015, 1, 1 + breath * 0.02);
-  rig.neck.rotation.y = reduceMotion ? 0 : Math.sin(t * 1.05 + (saint ? 0.4 : 2)) * 0.22;
+  const look = reduceMotion ? 0 : Math.sin(t * 1.05 + (saint ? 0.4 : 2)) * 0.22;
+  rig.chest.rotation.y = look * 0.45;
+  rig.neck.rotation.y = look * 0.55;
   rig.neck.rotation.z = reduceMotion ? 0 : Math.sin(t * 0.8) * 0.04;
 
   // 腕
@@ -1434,7 +1502,13 @@ function applyPose(rig, pose, dir, baseX, t, down, react) {
     rig.wings[1].rotation.y = 0.95 + flap;   // 後方へ開く(腕と干渉しない)
     rig.wings[-1].rotation.y = -0.95 - flap;
   }
-  if (rig.tail) rig.tail.rotation.y = reduceMotion ? 0 : Math.sin(t * 2.4) * 0.4;
+  if (rig.tailSegs) {
+    // 尻尾の3関節が波打つ
+    rig.tailSegs.forEach((sgp, i) => {
+      sgp.rotation.y = reduceMotion ? 0 : Math.sin(t * 2.3 + i * 0.9) * 0.35;
+      sgp.rotation.x = 0.22 + (reduceMotion ? 0 : Math.sin(t * 1.7 + i * 0.7) * 0.14);
+    });
+  }
   if (rig.halo) rig.halo.rotation.z = reduceMotion ? 0 : t * 0.5;
   if (rig.fan) rig.fan.rotation.z = reduceMotion ? 0 : Math.sin(t * 0.6) * 0.06; // 千手がゆっくり揺れる
 }
