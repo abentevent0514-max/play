@@ -2605,24 +2605,23 @@ function poseFor(lv, t, offset) {
     P.yawDeg = 75;
     P.guard = 0.85;
     P.stride = 0.15;
-  } else if (p < 4.0) {                // 溜め: その場で1回転(背中まで見せる)
-    const u = (p - 2.9) / 1.1;
-    const e = u * u * (3 - 2 * u);
-    P.yawDeg = 75 + 360 * e;
-    P.dx = -12 * Math.sin(Math.PI * u);
+  } else if (p < 4.0) {                // 溜め: 少し正面寄りに引いて力をためる
+    const u = Math.sin(Math.PI * (p - 2.9) / 1.1);
+    P.yawDeg = 66 - 24 * u;
+    P.dx = -12 * u;
     P.guard = 0.9;
-  } else if (p < 4.5) {                // 踏み込み: 完全な横向きで突進、拳を引き絞る
+  } else if (p < 4.5) {                // 踏み込み: 斜め向きのまま突進、拳を引き絞る
     const u = (p - 4.0) / 0.5;
     const e = u * u * (3 - 2 * u);
     P.dx = e * (44 + Math.max(0, lv) * 10);
     P.rot = 0.10 * e;
-    P.yawDeg = 90;
+    P.yawDeg = 42 + 38 * e; // 斜め約80度へ
     P.stride = 1;
     P.punch = -0.6 * e;
-  } else if (p < 4.8) {                // 突き
+  } else if (p < 4.8) {                // 突き(斜め向き)
     P.dx = 44 + Math.max(0, lv) * 10;
     P.rot = 0.10;
-    P.yawDeg = 90;
+    P.yawDeg = 80;
     P.stride = 1;
     P.punch = 1;
   } else if (p < 5.6) {                // 引き戻し
@@ -2630,11 +2629,11 @@ function poseFor(lv, t, offset) {
     const e = 1 - u * u;
     P.dx = (44 + Math.max(0, lv) * 10) * e;
     P.rot = 0.10 * e;
-    P.yawDeg = 90 - 18 * u;
+    P.yawDeg = 80 - 14 * u;
     P.stride = 1 - u * 0.6;
     P.punch = e;
   } else {                             // 残心
-    P.yawDeg = 68 + Math.sin(t * 0.8) * 18;
+    P.yawDeg = 68 + Math.sin(t * 0.8) * 14;
   }
   return P;
 }
