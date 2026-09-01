@@ -321,6 +321,7 @@
   <span class="tagline">罪と罰と幸福。</span>
   <div class="who hidden" id="whoBox">
     <span><b id="whoName"></b> として参拝中</span>
+    <button id="sndBtn" type="button" title="効果音の切り替え">🔊</button>
     <button id="logoutBtn" type="button">ログアウト</button>
   </div>
 </header>
@@ -893,6 +894,106 @@ let drawWeaken = 0; // 描画中キャラの弱体化度 0..1（drawCharacter �
 let drawYaw = 0;    // 描画中キャラの横回転 -1..1。正=ステージ中央側を向く
 let drawPose = null; // 描画中キャラの所作 (yawDeg/punch/guard/stride など)
 
+/* ---------- 効果音 (Web Audio でリアルタイム合成・素材不要) ---------- */
+const sfx = (() => {
+  let ac = null;
+  let enabled = true;
+  let nb = null;
+  function actx() {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    if (ac && ac.state === "suspended") ac.resume();
+    return ac;
+  }
+  // 自動再生制限対策: 最初のタップで起動
+  document.addEventListener("pointerdown", () => { actx(); }, { once: true });
+  function env(g, t0, a, d, peak) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(peak, t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+  }
+  function noise(c) {
+    if (nb) return nb;
+    nb = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate);
+    const d = nb.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return nb;
+  }
+  function play(kind) {
+    if (!enabled) return;
+    const c = actx(); if (!c || c.state !== "running") return;
+    const t0 = c.currentTime;
+    if (kind === "beam") {          // 仏: 上昇するキーン
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(300, t0);
+      o.frequency.exponentialRampToValueAtTime(1400, t0 + 0.25);
+      const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1200; f.Q.value = 6;
+      env(g, t0, 0.02, 0.45, 0.16);
+      o.connect(f); f.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + 0.55);
+      const o2 = c.createOscillator(), g2 = c.createGain();
+      o2.type = "sine";
+      o2.frequency.setValueAtTime(2400, t0);
+      o2.frequency.exponentialRampToValueAtTime(3600, t0 + 0.3);
+      env(g2, t0, 0.02, 0.35, 0.05);
+      o2.connect(g2); g2.connect(c.destination);
+      o2.start(t0); o2.stop(t0 + 0.45);
+    } else if (kind === "hit") {    // 発勁の当たり
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(160, t0);
+      o.frequency.exponentialRampToValueAtTime(50, t0 + 0.18);
+      env(g, t0, 0.005, 0.25, 0.45);
+      o.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + 0.32);
+      const n = c.createBufferSource(); n.buffer = noise(c);
+      const nf = c.createBiquadFilter(); nf.type = "highpass"; nf.frequency.value = 1000;
+      const ng = c.createGain(); env(ng, t0, 0.002, 0.12, 0.22);
+      n.connect(nf); nf.connect(ng); ng.connect(c.destination);
+      n.start(t0); n.stop(t0 + 0.16);
+    } else if (kind === "jump") {   // 悪魔: 跳躍の風切り
+      const n = c.createBufferSource(); n.buffer = noise(c);
+      const f = c.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.5;
+      f.frequency.setValueAtTime(400, t0);
+      f.frequency.exponentialRampToValueAtTime(1700, t0 + 0.28);
+      const g = c.createGain(); env(g, t0, 0.05, 0.26, 0.18);
+      n.connect(f); f.connect(g); g.connect(c.destination);
+      n.start(t0); n.stop(t0 + 0.38);
+    } else if (kind === "slam") {   // 叩きつけの地響き
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(120, t0);
+      o.frequency.exponentialRampToValueAtTime(32, t0 + 0.4);
+      env(g, t0, 0.005, 0.5, 0.6);
+      o.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + 0.58);
+      const n = c.createBufferSource(); n.buffer = noise(c);
+      const nf = c.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 900;
+      const ng = c.createGain(); env(ng, t0, 0.002, 0.3, 0.4);
+      n.connect(nf); nf.connect(ng); ng.connect(c.destination);
+      n.start(t0); n.stop(t0 + 0.36);
+    }
+  }
+  return { play, toggle() { enabled = !enabled; return enabled; } };
+})();
+$("sndBtn").addEventListener("click", () => {
+  $("sndBtn").textContent = sfx.toggle() ? "🔊" : "🔇";
+});
+
+/* 攻撃フェーズの通過を検知して効果音を鳴らす */
+let sfxPrevS = 0, sfxPrevD = 0;
+function soundCues(t, fighting) {
+  const pS = battlePhase(t, 0);
+  const pD = battlePhase(t, BATTLE_CYCLE / 2);
+  if (fighting) {
+    if (sfxPrevS < 4.5 && pS >= 4.5) sfx.play("beam");
+    if (sfxPrevS < 4.62 && pS >= 4.62) sfx.play("hit");
+    if (sfxPrevD < 4.02 && pD >= 4.02) sfx.play("jump");
+    if (sfxPrevD < 4.74 && pD >= 4.74) sfx.play("slam");
+  }
+  sfxPrevS = pS; sfxPrevD = pD;
+}
+
 /* ================= Three.js 決戦ステージ (本物の3D) ================= */
 const T = window.THREE;
 const stage3d = (() => {
@@ -1385,6 +1486,7 @@ function render3d(t) {
   const saintDown = dLv >= LV_MAX;
   const devilDown = sLv >= LV_MAX;
   const fighting = !saintDown && !devilDown && !reduceMotion;
+  soundCues(t, fighting);
 
   // ランクで場の光が変わる
   stage3d.goldL.intensity = 0.3 + ((sLv - LV_MIN) / 9) * 2.4;
