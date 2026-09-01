@@ -888,6 +888,19 @@ function drawCharacter(c, kind, lv, t) {
   }
   drawCharacterInner(c, kind, lv, t);
   ctx.restore();
+  // 決戦の光: 中央から差すリムライト + 外側の陰 (疑似3Dライティング)
+  // どちらのキャラもオフスクリーン右側がステージ中央を向く
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  let lg = ctx.createLinearGradient(W, 0, W * 0.4, 0);
+  lg.addColorStop(0, kind === "saint" ? "rgba(255,228,165,.20)" : "rgba(255,130,95,.18)");
+  lg.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+  lg = ctx.createLinearGradient(0, 0, W * 0.5, 0);
+  lg.addColorStop(0, "rgba(8,5,18,.32)");
+  lg.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
   if (react > 0) drawReactionFx(ctx, kind, react, W, H);
 }
 
@@ -2087,40 +2100,46 @@ function drawBattle(t) {
   ctx.fillStyle = "rgba(255,255,255,.04)";
   ctx.beginPath(); ctx.ellipse(W / 2, H - 14, W * 0.46, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-  /* 立ち位置: レベルが高いほど深く踏み込む。+5で相手はもう倒れている */
+  /* +5 で決着。相手はもう倒れている */
   const saintDown = dLv >= LV_MAX;
   const devilDown = sLv >= LV_MAX;
-  const lungeS = (!reduceMotion && !saintDown && !devilDown)
-    ? Math.max(0, Math.sin(t * 1.4)) * (4 + Math.max(0, sLv) * 4) : 0;
-  const lungeD = (!reduceMotion && !saintDown && !devilDown)
-    ? Math.max(0, Math.sin(t * 1.4 + Math.PI)) * (4 + Math.max(0, dLv) * 4) : 0;
+  const fighting = !saintDown && !devilDown && !reduceMotion;
 
-  drawFighter(ctx, saintC, 36 + lungeS, saintDown, false, t, H);
-  drawFighter(ctx, devilC, W - 280 - 36 - lungeD, devilDown, true, t, H);
+  /* 所作サイクル: 構え→跳躍→半身に溜め→踏み込み→撃→戻り。攻撃は交互 */
+  const poseS = fighting ? poseFor(sLv, t, 0) : null;
+  const poseD = fighting ? poseFor(dLv, t, BATTLE_CYCLE / 2) : null;
+  let shake = 0;
+  if (fighting) {
+    const hitOnD = hitAmount(t, 0) * (1 + Math.max(0, sLv) * 0.15);          // 仏の攻撃が悪魔に
+    const hitOnS = hitAmount(t, BATTLE_CYCLE / 2) * (1 + Math.max(0, dLv) * 0.15); // 悪魔の攻撃が仏に
+    if (hitOnD > 0) { poseD.dx -= 26 * hitOnD; poseD.rot -= 0.14 * hitOnD; poseD.dx += Math.sin(t * 55) * 4 * hitOnD; }
+    if (hitOnS > 0) { poseS.dx -= 26 * hitOnS; poseS.rot -= 0.14 * hitOnS; poseS.dx += Math.sin(t * 55) * 4 * hitOnS; }
+    shake = Math.max(hitOnS, hitOnD);
+  }
+  ctx.save();
+  if (shake > 0.55) ctx.translate(Math.sin(t * 70) * 3 * shake, Math.cos(t * 63) * 2 * shake);
+
+  drawFighter(ctx, saintC, 36, saintDown, false, t, H, poseS);
+  drawFighter(ctx, devilC, W - 280 - 36, devilDown, true, t, H, poseD);
+
+  if (fighting) {
+    drawStrikeFx(ctx, "saint", t, 0, sLv, W, H);
+    drawStrikeFx(ctx, "devil", t, BATTLE_CYCLE / 2, dLv, W, H);
+  }
+  ctx.restore();
 
   if (!saintDown && !devilDown) {
     /* 激突点: 力関係で押し合いの位置が動く */
     const clashX = W / 2 + (sLv - dLv) * 12;
     const cy = H * 0.52;
     ctx.save();
-    const flick = reduceMotion ? 0.5 : 0.5 + Math.sin(t * 11) * 0.3;
-    const cg = ctx.createRadialGradient(clashX, cy, 2, clashX, cy, 62);
-    cg.addColorStop(0, `rgba(255,255,240,${0.5 * flick})`);
-    cg.addColorStop(0.4, `rgba(255,220,150,${0.22 * flick})`);
+    const flick = reduceMotion ? 0.5 : 0.35 + Math.sin(t * 11) * 0.2;
+    const cg = ctx.createRadialGradient(clashX, cy, 2, clashX, cy, 50);
+    cg.addColorStop(0, `rgba(255,255,240,${0.35 * flick})`);
+    cg.addColorStop(0.4, `rgba(255,220,150,${0.16 * flick})`);
     cg.addColorStop(1, "rgba(255,120,90,0)");
     ctx.fillStyle = cg;
-    ctx.beginPath(); ctx.arc(clashX, cy, 62, 0, Math.PI * 2); ctx.fill();
-    // 飛び散る火花
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + t * 3;
-      const d2 = 12 + ((i * 29 + Math.floor(t * 6) * 13) % 36);
-      ctx.strokeStyle = i % 2 ? "rgba(255,235,170,.85)" : "rgba(240,138,155,.85)";
-      ctx.lineWidth = 1.5; ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(clashX + Math.cos(a) * d2 * 0.4, cy + Math.sin(a) * d2 * 0.4);
-      ctx.lineTo(clashX + Math.cos(a) * d2, cy + Math.sin(a) * d2);
-      ctx.stroke();
-    }
+    ctx.beginPath(); ctx.arc(clashX, cy, 50, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   } else {
     /* 決着: 勝者に覇気のオーラ */
@@ -2138,8 +2157,8 @@ function drawBattle(t) {
   }
 }
 
-/* キャラ1体を戦場へ配置。flip=中央を向かせる、down=戦闘不能 */
-function drawFighter(ctx, c, x, down, flip, t, H) {
+/* キャラ1体を戦場へ配置。flip=中央を向かせる、down=戦闘不能、pose=所作 */
+function drawFighter(ctx, c, x, down, flip, t, H, pose) {
   const w = 280, h = 320;
   ctx.save();
   if (down) {
@@ -2168,18 +2187,129 @@ function drawFighter(ctx, c, x, down, flip, t, H) {
     }
     return;
   }
-  if (flip) {
-    ctx.translate(x + w, 0); ctx.scale(-1, 1);
-    ctx.drawImage(c.canvas, 0, H - h - 4, w, h);
-  } else {
-    ctx.drawImage(c.canvas, x, H - h - 4, w, h);
+  // 所作(pose)を足元中心の変形として適用。dx=中央方向・rot=前傾・sx=半身のひねり
+  const dir = flip ? -1 : 1;
+  const cx0 = x + w / 2 + (pose ? pose.dx * dir : 0);
+  const footY = H - 4 + (pose ? pose.dy : 0);
+  // 跳躍中は接地影を別描き
+  if (pose && pose.dy < -6) {
+    ctx.fillStyle = `rgba(0,0,0,${0.3 * (1 + pose.dy / 80)})`;
+    ctx.beginPath();
+    ctx.ellipse(cx0, H - 12, 56 * (1 + pose.dy / 160), 9, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
+  ctx.translate(cx0, footY);
+  if (pose) ctx.rotate(pose.rot * dir);
+  ctx.scale((pose ? pose.sx : 1) * (flip ? -1 : 1), pose ? pose.sy : 1);
+  ctx.drawImage(c.canvas, -w / 2, -h, w, h);
   ctx.restore();
+}
+
+/* ---------- 戦闘の振り付け ---------- */
+const BATTLE_CYCLE = 7; // 秒。仏と悪魔は半周期ずらして交互に攻める
+
+function battlePhase(t, offset) {
+  return (((t + offset) % BATTLE_CYCLE) + BATTLE_CYCLE) % BATTLE_CYCLE;
+}
+
+function poseFor(lv, t, offset) {
+  const p = battlePhase(t, offset);
+  const P = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 };
+  const power = 1 + Math.max(0, lv) * 0.15;
+  if (p < 2.2) {                       // 構え: 小さく上下
+    P.dy = Math.sin(p * 3.2) * 2.5;
+  } else if (p < 2.9) {                // 跳躍
+    const u = (p - 2.2) / 0.7;
+    P.dy = -Math.sin(Math.PI * u) * 30 * power;
+    P.sy = 1 + Math.sin(Math.PI * u) * 0.06;
+    P.sx = 1 - Math.sin(Math.PI * u) * 0.05;
+  } else if (p < 4.0) {                // 半身にひねって力を溜める(横を向く)
+    const u = Math.sin(Math.PI * (p - 2.9) / 1.1);
+    P.sx = 1 - 0.42 * u;
+    P.dx = -14 * u;
+    P.rot = -0.10 * u;
+  } else if (p < 4.5) {                // 踏み込み
+    const u = (p - 4.0) / 0.5;
+    const e = u * u * (3 - 2 * u);
+    P.dx = e * (44 + Math.max(0, lv) * 10);
+    P.rot = 0.18 * e;
+  } else if (p < 4.8) {                // 撃つ
+    P.dx = 44 + Math.max(0, lv) * 10;
+    P.rot = 0.18;
+  } else if (p < 5.6) {                // 引き戻し
+    const u = (p - 4.8) / 0.8;
+    const e = 1 - u * u;
+    P.dx = (44 + Math.max(0, lv) * 10) * e;
+    P.rot = 0.18 * e;
+  }
+  return P;
+}
+
+/* 攻撃側 offset の一撃が相手に届いている度合い 1→0 */
+function hitAmount(t, attackerOffset) {
+  const p = battlePhase(t, attackerOffset);
+  if (p < 5.0 || p > 5.55) return 0;
+  return 1 - (p - 5.0) / 0.55;
+}
+
+/* 飛び道具と着弾バースト。仏=光弾 / 悪魔=火炎弾 */
+function drawStrikeFx(ctx, kind, t, offset, lv, W, H) {
+  const p = battlePhase(t, offset);
+  const y = H * 0.5;
+  const fromX = kind === "saint" ? 250 : W - 250;
+  const toX = kind === "saint" ? W - 210 : 210;
+  const power = 1 + Math.max(0, lv) * 0.18;
+  if (p >= 4.45 && p < 5.0) { // 飛翔
+    const u = (p - 4.45) / 0.55;
+    const x = fromX + (toX - fromX) * u;
+    ctx.save();
+    if (kind === "saint") {
+      ctx.strokeStyle = "rgba(255,230,150,.30)"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(fromX, y); ctx.lineTo(x, y); ctx.stroke();
+      ctx.shadowColor = "rgba(255,230,150,.9)"; ctx.shadowBlur = 16;
+      const og = ctx.createRadialGradient(x, y, 1, x, y, 10 * power);
+      og.addColorStop(0, "#fff8e0"); og.addColorStop(1, "rgba(255,210,110,0)");
+      ctx.fillStyle = og;
+      ctx.beginPath(); ctx.arc(x, y, 10 * power, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.shadowColor = "rgba(255,120,70,.9)"; ctx.shadowBlur = 16;
+      for (let i = 4; i >= 0; i--) { // 炎の尾から本体へ
+        const bx = x + (fromX - toX) * 0.028 * i;
+        const og = ctx.createRadialGradient(bx, y, 1, bx, y, (11 - i * 1.8) * power);
+        og.addColorStop(0, i === 0 ? "#ffe0b0" : "#ff9a60");
+        og.addColorStop(1, "rgba(200,40,40,0)");
+        ctx.globalAlpha = i === 0 ? 1 : 0.5 - i * 0.08;
+        ctx.fillStyle = og;
+        ctx.beginPath();
+        ctx.arc(bx, y + (reduceMotion ? 0 : Math.sin(t * 22 + i) * 2), (11 - i * 1.8) * power, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  if (p >= 5.0 && p < 5.35) { // 着弾バースト
+    const u = (p - 5.0) / 0.35;
+    ctx.save();
+    ctx.globalAlpha = 1 - u;
+    ctx.strokeStyle = kind === "saint" ? "rgba(255,235,170,.9)" : "rgba(255,120,90,.9)";
+    ctx.lineWidth = 3 * (1 - u) + 1; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(toX, y, 8 + u * 48 * power, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + u;
+      const d2 = (14 + u * 42) * power;
+      ctx.beginPath();
+      ctx.moveTo(toX + Math.cos(a) * d2 * 0.5, y + Math.sin(a) * d2 * 0.5);
+      ctx.lineTo(toX + Math.cos(a) * d2, y + Math.sin(a) * d2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 /* ---------- アニメーションループ ---------- */
 let lastDraw = 0;
-function loop(ms) {
+function loop() {
+  const ms = performance.now();
   const t = ms / 1000;
   const appVisible = me && !$("app").classList.contains("hidden");
   if (appVisible && (!reduceMotion || ms - lastDraw > 500)) {
