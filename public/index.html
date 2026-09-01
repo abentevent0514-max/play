@@ -1151,7 +1151,7 @@ function buildFighter(kind, lv) {
     sh.position.set(sg * P.shoulder, P.torsoH - 2, 0);
     hips.add(sh);
     if (!saint) { // 三角筋の盛り
-      const delt = new T.Mesh(new T.SphereGeometry(P.armR * 1.5, 10, 8), mat3d(skin, { roughness: 0.45 }));
+      const delt = new T.Mesh(new T.SphereGeometry(P.armR * 1.22, 10, 8), mat3d(skin, { roughness: 0.45 }));
       delt.castShadow = true;
       sh.add(delt);
     }
@@ -1299,10 +1299,10 @@ function applyPose(rig, pose, dir, baseX, t, down, react) {
       shz = sg * 0.2;
       elx = -g * 1.5;
     } else {
-      // 悪魔: 肘を曲げ、爪を体の前に構えるファイタースタンス
-      shx = -0.45 - g * 0.25 + armSway * sg;
-      shz = sg * (0.55 + g * 0.15);
-      elx = -1.15 - g * 0.4;
+      // 悪魔: ボクサー風の非対称ガード。肘を折り、爪は相手向き
+      shx = (sg === 1 ? -0.5 : -0.28) - g * 0.15 + armSway * sg;
+      shz = sg * 0.3;
+      elx = -0.85 - g * 0.3;
     }
     if (saint && (p2.pray || 0) > 0.3) {           // 合掌: 胸の前で手を合わせる
       shx = -0.95; shz = sg * -0.5; elx = -1.35;
@@ -1312,12 +1312,11 @@ function applyPose(rig, pose, dir, baseX, t, down, react) {
       else if (sg === 1) { shx = 0.5 * -p2.punch; elx = -1.7 * -p2.punch; }
       else { shx = 0.2; elx = -0.9; shz = sg * 0.3; }
     }
-    if (!saint && p2.slash != null) {               // 頭上振りかぶり→真下へ叩きつけ
+    if (!saint && p2.slash != null) {               // 頭上→前方経由→真下へ叩きつける
       const k = (Math.max(-1, Math.min(1, p2.slash)) + 1) / 2;
-      const lead = sg === 1 ? 1 : 0.62;
-      shx = ((Math.PI - 0.15) * (1 - k) + (-0.8) * k) * lead;
-      shz = sg * 0.1;
-      elx = -0.25 - (1 - k) * 0.3;
+      shx = (-2.9 * (1 - k) + (-0.8) * k) * (sg === 1 ? 1 : 0.7);
+      shz = sg * 0.12;
+      elx = -1.0 * (1 - k) - 0.15; // 構えでは肘を折り、振り抜きで伸ばす
     }
     A.sh.rotation.set(shx, 0, shz);
     A.el.rotation.x = elx;
@@ -3413,11 +3412,12 @@ function poseFor(kind, lv, t, offset) {
     }
   } else if (p < 4.0) {                // 溜め
     const u = Math.sin(Math.PI * (p - 2.9) / 1.1);
+    const uLin = (p - 2.9) / 1.1;
     P.yawDeg = 66 - 24 * u;
     P.dx = -12 * u;
     P.guard = 0.9;
-    if (saint) P.pray = u;             // 合掌に気を集める
-    else P.slash = -u;                 // 爪を振りかぶっていく
+    if (saint) P.pray = 1;             // 合掌に気を集める
+    else P.slash = -uLin;              // 頭上へ単調に振りかぶっていく
   } else if (p < 4.5) {                // 踏み込み
     const u = (p - 4.0) / 0.5;
     const e = u * u * (3 - 2 * u);
