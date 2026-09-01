@@ -786,14 +786,18 @@ function renderApp() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "btn-big btn-ticket";
-    b.innerHTML = `🎫 精算する — ${esc(cl.label)}<small>${esc(cl.desc)}。精算すると双方の強さは0にリセット</small>`;
+    const armedNow = ticketArmed.key === cl.id && Date.now() < ticketArmed.until;
+    b.innerHTML = armedNow
+      ? `🎫 相手に見せて、もう一度タップで精算確定<small>${esc(cl.label)}</small>`
+      : `🎫 精算する — ${esc(cl.label)}<small>${esc(cl.desc)}。精算すると双方の強さは0にリセット</small>`;
     b.addEventListener("click", () => {
       if (ticketArmed.key === cl.id && Date.now() < ticketArmed.until) {
         ticketArmed = { key: null, until: 0 };
         b.disabled = true;
-        settleClaim(cl);
+        b.innerHTML = "🎫 精算中…";
+        settleClaim(cl, b);
       } else {
-        ticketArmed = { key: cl.id, until: Date.now() + 6000 };
+        ticketArmed = { key: cl.id, until: Date.now() + 10000 };
         b.innerHTML = `🎫 相手に見せて、もう一度タップで精算確定<small>${esc(cl.label)}</small>`;
       }
     });
@@ -859,9 +863,28 @@ function showTicketFanfare(cl) {
   }, 1200);
 }
 
-/* 精算: 記録を残し、双方の強さを0へ戻す */
-async function settleClaim(cl) {
-  try { await api("settle", { owner: me.id, side: cl.side, lv: cl.lv, label: cl.label }); refresh(); } catch (e) {}
+/* 精算: 記録を残し、双方の強さを0へ戻す。結果は必ず画面に表す */
+async function settleClaim(cl, btn) {
+  try {
+    await api("settle", { owner: me.id, side: cl.side, lv: cl.lv, label: cl.label });
+    showSettledFanfare(cl);
+    refresh();
+  } catch (e) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `⚠ 精算に失敗（${esc(String((e && (e.code || e.message)) || e))}）— もう一度タップ`;
+    }
+  }
+}
+
+function showSettledFanfare(cl) {
+  const f = $("fanfare");
+  f.classList.remove("f-devil");
+  f.classList.add("f-saint");
+  $("ffKind").textContent = "― 精 算 完 了 ―";
+  $("ffLv").textContent = "🎫 " + cl.label;
+  $("ffStory").textContent = "報酬を受け取った。天秤は0に戻り、新たな因果が始まる。";
+  f.classList.add("show");
 }
 
 function renderGauge(kind, lv, extra) {
