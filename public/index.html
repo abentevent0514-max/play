@@ -827,6 +827,7 @@ $("fanfare").addEventListener("click", (e) => { if (e.target === $("fanfare")) $
    ============================================================ */
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let drawWeaken = 0; // 描画中キャラの弱体化度 0..1（drawCharacter が設定）
+let drawYaw = 0;    // 描画中キャラの横回転 -1..1。正=ステージ中央側を向く
 
 /* キャラは各自オフスクリーンに描き、決戦ステージ1枚に合成する */
 function makeOffscreen() {
@@ -872,6 +873,8 @@ $("battleCanvas").addEventListener("pointerdown", (e) => {
 function drawCharacter(c, kind, lv, t) {
   const { ctx, W, H } = c;
   ctx.clearRect(0, 0, W, H);
+  const pose = kind === "saint" ? curPoseS : curPoseD;
+  drawYaw = pose ? (pose.yaw || 0) : 0;
   const now = performance.now();
   const react = Math.max(0, (reactUntil[kind] - now) / 1100); // 1→0 で減衰
   ctx.save();
@@ -1043,17 +1046,18 @@ function drawSaintAura(ctx, cx, headY, lv, t, W, H) {
   }
 }
 function drawSaintBody(ctx, cx, baseY, bodyTop, p, lv) {
-  // 袈裟: 台形 + 曲線裾
+  // 袈裟: 台形 + 曲線裾。yaw で上半身がひねられる(裾は接地したまま)
   const w = p.shoulder;
+  const tx = drawYaw * w * 0.34;
   const grad = ctx.createLinearGradient(cx - w, bodyTop, cx + w * 1.4, baseY);
   if (lv >= 5) { grad.addColorStop(0, "#f4dda2"); grad.addColorStop(.5, "#d9a441"); grad.addColorStop(1, "#8a6218"); }
   else { grad.addColorStop(0, "#e8c98a"); grad.addColorStop(.55, "#c79436"); grad.addColorStop(1, "#7d5c1e"); }
   ctx.fillStyle = lv === 1 ? "#c79436" : grad; // Lv1はベタ塗りのチープ表現
   ctx.beginPath();
-  ctx.moveTo(cx - w * 0.62, bodyTop);
+  ctx.moveTo(cx - w * 0.62 + tx, bodyTop);
   ctx.quadraticCurveTo(cx - w * 1.28, baseY - 10, cx - w * 1.02, baseY);
   ctx.quadraticCurveTo(cx, baseY + 8, cx + w * 1.02, baseY);
-  ctx.quadraticCurveTo(cx + w * 1.28, baseY - 10, cx + w * 0.62, bodyTop);
+  ctx.quadraticCurveTo(cx + w * 1.28, baseY - 10, cx + w * 0.62 + tx, bodyTop);
   ctx.closePath(); ctx.fill();
   // 低レベルはマンガ調アウトライン、高レベルは輪郭が消えて絵画的に
   if (lv <= 3) { ctx.strokeStyle = "rgba(35,22,4,.75)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
@@ -1068,37 +1072,42 @@ function drawSaintBody(ctx, cx, baseY, bodyTop, p, lv) {
   const folds = 1 + Math.round(p.detail * 4);
   ctx.strokeStyle = "rgba(60,40,8,.35)"; ctx.lineWidth = 1.2;
   for (let i = 1; i <= folds; i++) {
-    const fx = cx - w * 0.5 + (w / (folds + 1)) * i * 1.0;
+    const fold = cx - w * 0.5 + (w / (folds + 1)) * i + tx * 0.8;
     ctx.beginPath();
-    ctx.moveTo(fx, bodyTop + 14);
-    ctx.quadraticCurveTo(fx - 6, (bodyTop + baseY) / 2, fx + 3, baseY - 6);
+    ctx.moveTo(fold, bodyTop + 14);
+    ctx.quadraticCurveTo(fold - 6, (bodyTop + baseY) / 2, fold + 3, baseY - 6);
     ctx.stroke();
   }
   // 合掌の手
   const hy = bodyTop + p.bodyH * 0.34;
   ctx.fillStyle = lv >= 5 ? "#f6e2b0" : "#f0cf9b";
-  ctx.beginPath(); ctx.ellipse(cx, hy, 9, 15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + tx, hy, 9, 15, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "rgba(90,60,20,.4)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cx, hy - 14); ctx.lineTo(cx, hy + 14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + tx, hy - 14); ctx.lineTo(cx + tx, hy + 14); ctx.stroke();
   // 襟
   ctx.strokeStyle = lv >= 4 ? "rgba(255,240,200,.8)" : "rgba(255,240,200,.5)";
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(cx - w * 0.5, bodyTop + 4);
-  ctx.lineTo(cx, bodyTop + 26);
-  ctx.lineTo(cx + w * 0.5, bodyTop + 4);
+  ctx.moveTo(cx - w * 0.5 + tx, bodyTop + 4);
+  ctx.lineTo(cx + tx * 1.3, bodyTop + 26);
+  ctx.lineTo(cx + w * 0.5 + tx, bodyTop + 4);
   ctx.stroke();
 }
 function drawSaintHead(ctx, cx, headY, p, lv, t) {
   const r = p.headR;
-  // 後光の輪（弱ると薄れ、ちらつく）
+  const fx = r * drawYaw * 0.45; // 顔パーツは回転方向へ流れる(パララックス)
+  // 後光の輪（弱ると薄れ、ちらつく。頭の後ろにあるので回転と逆へ回り込む）
   ctx.save();
   const haloDim = (1 - drawWeaken * 0.7) *
     (drawWeaken > 0.4 && !reduceMotion ? 0.75 + Math.sin(t * 9) * 0.25 : 1);
   ctx.strokeStyle = `rgba(240,217,160,${(0.35 + lv * 0.12) * haloDim})`;
   ctx.lineWidth = lv >= 4 ? 4 : 2.5;
   ctx.shadowColor = "rgba(240,217,160,.8)"; ctx.shadowBlur = (6 + lv * 3) * haloDim;
-  ctx.beginPath(); ctx.ellipse(cx, headY - r * 0.9, r * (1.0 + lv * 0.12), r * (0.32 + lv * 0.03), 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx - fx * 1.2, headY - r * 0.9,
+    r * (1.0 + lv * 0.12) * (1 - Math.abs(drawYaw) * 0.22), r * (0.32 + lv * 0.03),
+    0, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
   // 顔
   const skin = ctx.createRadialGradient(cx - r * 0.35, headY - r * 0.35, r * 0.2, cx, headY, r * 1.15);
@@ -1132,35 +1141,46 @@ function drawSaintHead(ctx, cx, headY, p, lv, t) {
     ctx.fillStyle = "#4a4a55";
     ctx.beginPath(); ctx.arc(cx, headY - r * 0.25, r * 0.95, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
   }
-  // 長い耳 (Lv4+)
+  // 長い耳 (Lv4+)。回転で遠い側は頭に隠れる
   if (lv >= 4) {
     ctx.fillStyle = "#e8c48c";
     for (const s of [-1, 1]) {
+      if (s * drawYaw < -0.45) continue;
       ctx.beginPath();
-      ctx.ellipse(cx + s * r * 0.98, headY + r * 0.18, r * 0.14, r * 0.42, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + s * r * 0.98 - fx * 0.6, headY + r * 0.18,
+        r * 0.14 * (1 + s * drawYaw * 0.4), r * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
   // 白毫 (Lv4+)
   if (lv >= 4) {
     ctx.fillStyle = "#fff3d0";
-    ctx.beginPath(); ctx.arc(cx, headY - r * 0.35, r * 0.08, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + fx * 0.8, headY - r * 0.35, r * 0.08, 0, Math.PI * 2); ctx.fill();
   }
-  // 目: 伏し目。まれに開く
+  // 鼻: 横を向くと輪郭に出る
+  if (Math.abs(drawYaw) > 0.18) {
+    ctx.strokeStyle = "rgba(120,85,40,.55)"; ctx.lineWidth = 1.5; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx + fx * 1.35, headY - r * 0.02);
+    ctx.quadraticCurveTo(cx + fx * 1.35 + Math.sign(drawYaw) * r * 0.12, headY + r * 0.08, cx + fx * 1.3, headY + r * 0.15);
+    ctx.stroke();
+  }
+  // 目: 伏し目。まれに開く。遠い側の目は細く
   const open = !reduceMotion && Math.sin(t * 0.5) > 0.995;
   ctx.strokeStyle = "#5a4326"; ctx.lineWidth = 2; ctx.lineCap = "round";
   for (const s of [-1, 1]) {
+    const ew = 1 + s * drawYaw * 0.35;
     ctx.beginPath();
-    if (open) { ctx.arc(cx + s * r * 0.38, headY - r * 0.05, r * 0.1, 0, Math.PI * 2); }
-    else { ctx.arc(cx + s * r * 0.38, headY - r * 0.08, r * 0.16, Math.PI * 0.15, Math.PI * 0.85); }
+    if (open) { ctx.arc(cx + s * r * 0.38 * ew + fx, headY - r * 0.05, r * 0.1 * ew, 0, Math.PI * 2); }
+    else { ctx.arc(cx + s * r * 0.38 * ew + fx, headY - r * 0.08, r * 0.16 * ew, Math.PI * 0.15, Math.PI * 0.85); }
     ctx.stroke();
   }
   // 口: 微笑（弱ると への字 に）
   ctx.beginPath();
   if (drawWeaken > 0.45) {
-    ctx.arc(cx, headY + r * 0.62, r * 0.22, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.arc(cx + fx, headY + r * 0.62, r * 0.22, Math.PI * 1.2, Math.PI * 1.8);
   } else {
-    ctx.arc(cx, headY + r * 0.38, r * 0.22, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.arc(cx + fx, headY + r * 0.38, r * 0.22, Math.PI * 0.2, Math.PI * 0.8);
   }
   ctx.stroke();
   // 困り眉と冷や汗
@@ -1168,8 +1188,8 @@ function drawSaintHead(ctx, cx, headY, p, lv, t) {
     ctx.lineWidth = 2;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(cx + s * r * 0.18, headY - r * 0.32);
-      ctx.lineTo(cx + s * r * 0.55, headY - r * 0.22);
+      ctx.moveTo(cx + s * r * 0.18 + fx, headY - r * 0.32);
+      ctx.lineTo(cx + s * r * 0.55 + fx, headY - r * 0.22);
       ctx.stroke();
     }
     ctx.fillStyle = "rgba(160,200,240,.8)";
@@ -1228,9 +1248,10 @@ function drawSaintUltimate(ctx, W, H, t, lv = 5) {
     ctx.restore();
   }
 
-  /* 背後の千手（奥の層のみ・薄く, Lv4+） */
+  /* 背後の千手（奥の層のみ・薄く, Lv4+）。背後にあるので回転と逆へ流れる */
   if (lv >= 4) {
     ctx.save(); ctx.globalAlpha = lv === 5 ? 0.55 : 0.3;
+    ctx.translate(-drawYaw * 14, 0);
     drawArmFan(ctx, cx, shoulderY + 4, t, 0);
     ctx.restore();
   }
@@ -1450,14 +1471,22 @@ function drawSaintUltimate(ctx, W, H, t, lv = 5) {
     ctx.fillStyle = "#8a5f2a";
     ctx.beginPath(); ctx.arc(cx, headY - r + 1, 6, 0, Math.PI * 2); ctx.fill();
   }
-  // 相貌: 伏し目・白毫・微笑
+  // 相貌: 伏し目・白毫・微笑（yaw で顔が回る）
+  const yfx = r * drawYaw * 0.42;
   ctx.strokeStyle = "#5a3a14"; ctx.lineWidth = 1.6; ctx.lineCap = "round";
   for (const s of [-1, 1]) {
-    ctx.beginPath(); ctx.arc(cx + s * 7, headY - 1, 3.5, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+    const ew = 1 + s * drawYaw * 0.3;
+    ctx.beginPath(); ctx.arc(cx + s * 7 * ew + yfx, headY - 1, 3.5 * ew, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
   }
-  ctx.beginPath(); ctx.arc(cx, headY + 9, 4.5, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx + yfx, headY + 9, 4.5, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+  if (Math.abs(drawYaw) > 0.18) { // 鼻梁
+    ctx.beginPath();
+    ctx.moveTo(cx + yfx * 1.3, headY - 2);
+    ctx.quadraticCurveTo(cx + yfx * 1.3 + Math.sign(drawYaw) * 2.4, headY + 2, cx + yfx * 1.25, headY + 5);
+    ctx.stroke();
+  }
   ctx.fillStyle = "#fff3d0";
-  ctx.beginPath(); ctx.arc(cx, headY - 7, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + yfx * 0.8, headY - 7, 1.6, 0, Math.PI * 2); ctx.fill();
 
   // スペキュラハイライト(3Dモデルのテカリ)
   ctx.fillStyle = "rgba(255,250,230,.35)";
@@ -1550,12 +1579,12 @@ function drawDevilAura(ctx, cx, baseY, lv, t, W, H) {
 }
 function drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t) {
   const w = p.shoulder;
-  // 翼 (Lv2から小さく生える)
+  // 翼 (Lv2から小さく生える)。近い側は大きく、遠い側は小さく=回転の遠近感
   if (lv >= 2) {
-    const span = 26 + lv * 12;
     const flap = reduceMotion ? 0 : Math.sin(t * 2.2) * 6;
     ctx.fillStyle = lv >= 5 ? "rgba(58,20,74,.95)" : "rgba(58,20,74,.75)";
     for (const s of [-1, 1]) {
+      const span = (26 + lv * 12) * (1 + s * drawYaw * 0.38);
       ctx.beginPath();
       ctx.moveTo(cx + s * w * 0.5, bodyTop + 12);
       ctx.quadraticCurveTo(cx + s * (w + span), bodyTop - 24 - flap, cx + s * (w + span * 1.15), bodyTop + 26 - flap);
@@ -1579,13 +1608,14 @@ function drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t) {
     ctx.moveTo(tx - 6, ty + 4); ctx.lineTo(tx + 7, ty); ctx.lineTo(tx - 2, ty - 8);
     ctx.closePath(); ctx.fill();
   }
-  // 体: マント風
+  // 体: マント風。yaw で上半身がひねられる
+  const tx = drawYaw * w * 0.34;
   const grad = ctx.createLinearGradient(cx - w, bodyTop, cx + w * 1.4, baseY);
   if (lv >= 5) { grad.addColorStop(0, "#e06478"); grad.addColorStop(.5, "#b32b48"); grad.addColorStop(1, "#3d1150"); }
   else { grad.addColorStop(0, "#d4607a"); grad.addColorStop(.55, "#a83a54"); grad.addColorStop(1, "#4a1a5e"); }
   ctx.fillStyle = lv === 1 ? "#a83a54" : grad; // Lv1はベタ塗りのチープ表現
   ctx.beginPath();
-  ctx.moveTo(cx - w * 0.62, bodyTop);
+  ctx.moveTo(cx - w * 0.62 + tx, bodyTop);
   ctx.quadraticCurveTo(cx - w * 1.2, baseY - 14, cx - w * 0.95, baseY);
   // ギザギザの裾
   const jags = 4 + Math.round(p.detail * 3);
@@ -1593,7 +1623,7 @@ function drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t) {
     const jx = cx - w * 0.95 + ((w * 1.9) / jags) * i;
     ctx.lineTo(jx, baseY + (i % 2 === 0 ? 0 : -10));
   }
-  ctx.quadraticCurveTo(cx + w * 1.2, baseY - 14, cx + w * 0.62, bodyTop);
+  ctx.quadraticCurveTo(cx + w * 1.2, baseY - 14, cx + w * 0.62 + tx, bodyTop);
   ctx.closePath(); ctx.fill();
   if (lv <= 3) { ctx.strokeStyle = "rgba(20,6,14,.8)"; ctx.lineWidth = lv === 1 ? 3.5 : 2.5; ctx.stroke(); }
   else if (lv >= 4) { // 下からの業火のリムライト
@@ -1606,19 +1636,21 @@ function drawDevilBody(ctx, cx, baseY, bodyTop, p, lv, t) {
   // 腕組み
   ctx.strokeStyle = "rgba(30,8,20,.5)"; ctx.lineWidth = 5; ctx.lineCap = "round";
   const ay = bodyTop + p.bodyH * 0.32;
-  ctx.beginPath(); ctx.moveTo(cx - w * 0.5, ay - 4); ctx.quadraticCurveTo(cx, ay + 10, cx + w * 0.5, ay - 4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx - w * 0.5, ay + 6); ctx.quadraticCurveTo(cx, ay - 6, cx + w * 0.5, ay + 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - w * 0.5 + tx, ay - 4); ctx.quadraticCurveTo(cx + tx, ay + 10, cx + w * 0.5 + tx, ay - 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - w * 0.5 + tx, ay + 6); ctx.quadraticCurveTo(cx + tx, ay - 6, cx + w * 0.5 + tx, ay + 6); ctx.stroke();
 }
 function drawDevilHead(ctx, cx, headY, p, lv, t) {
   const r = p.headR;
-  // ツノ: レベルで成長
-  const hornH = 6 + lv * 6;
+  const fx = r * drawYaw * 0.45; // 顔パーツのパララックス
+  // ツノ: レベルで成長。近い側は大きく、遠い側は小さく
   ctx.fillStyle = lv >= 4 ? "#e8d5b0" : "#d8bfa0";
   for (const s of [-1, 1]) {
+    const hs = 1 + s * drawYaw * 0.35;
+    const hornH = (6 + lv * 6) * hs;
     ctx.beginPath();
-    ctx.moveTo(cx + s * r * 0.5, headY - r * 0.72);
-    ctx.quadraticCurveTo(cx + s * r * (0.7 + lv * 0.08), headY - r - hornH * 0.6, cx + s * r * (0.55 + lv * 0.1), headY - r - hornH);
-    ctx.quadraticCurveTo(cx + s * r * 0.85, headY - r * 0.85, cx + s * r * 0.72, headY - r * 0.6);
+    ctx.moveTo(cx + s * r * 0.5 * hs + fx * 0.7, headY - r * 0.72);
+    ctx.quadraticCurveTo(cx + s * r * (0.7 + lv * 0.08) * hs + fx * 0.7, headY - r - hornH * 0.6, cx + s * r * (0.55 + lv * 0.1) * hs + fx * 0.7, headY - r - hornH);
+    ctx.quadraticCurveTo(cx + s * r * 0.85 * hs + fx * 0.7, headY - r * 0.85, cx + s * r * 0.72 * hs + fx * 0.7, headY - r * 0.6);
     ctx.closePath(); ctx.fill();
   }
   // 顔
@@ -1646,40 +1678,41 @@ function drawDevilHead(ctx, cx, headY, p, lv, t) {
     ctx.lineTo(cx + Math.cos(a) * rr, headY - r * 0.1 + Math.sin(a) * rr);
   }
   ctx.closePath(); ctx.fill();
-  // 目: つり目。Lv4+ で発光
+  // 目: つり目。Lv4+ で発光。遠い側は細く
   const blink = !reduceMotion && Math.sin(t * 0.7 + 1) > 0.99;
   for (const s of [-1, 1]) {
+    const ew = 1 + s * drawYaw * 0.35;
     if (blink) {
       ctx.strokeStyle = "#3a0f1c"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cx + s * r * 0.22, headY - r * 0.02); ctx.lineTo(cx + s * r * 0.55, headY - r * 0.12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + s * r * 0.22 * ew + fx, headY - r * 0.02); ctx.lineTo(cx + s * r * 0.55 * ew + fx, headY - r * 0.12); ctx.stroke();
     } else {
       ctx.save();
       if (lv >= 4) { ctx.shadowColor = "#ffd24a"; ctx.shadowBlur = 10; }
       ctx.fillStyle = lv >= 4 ? "#ffd24a" : "#fff";
       ctx.beginPath();
-      ctx.moveTo(cx + s * r * 0.2, headY - r * 0.02);
-      ctx.lineTo(cx + s * r * 0.58, headY - r * 0.18);
-      ctx.lineTo(cx + s * r * 0.52, headY + r * 0.08);
+      ctx.moveTo(cx + s * r * 0.2 * ew + fx, headY - r * 0.02);
+      ctx.lineTo(cx + s * r * 0.58 * ew + fx, headY - r * 0.18);
+      ctx.lineTo(cx + s * r * 0.52 * ew + fx, headY + r * 0.08);
       ctx.closePath(); ctx.fill();
       ctx.restore();
       if (lv < 4) {
         ctx.fillStyle = "#7a1430";
-        ctx.beginPath(); ctx.arc(cx + s * r * 0.4, headY - r * 0.04, r * 0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + s * r * 0.4 * ew + fx, headY - r * 0.04, r * 0.07, 0, Math.PI * 2); ctx.fill();
       }
     }
   }
   // 口: ニヤリ + 牙
   ctx.strokeStyle = "#3a0f1c"; ctx.lineWidth = 2; ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(cx - r * 0.3, headY + r * 0.34);
-  ctx.quadraticCurveTo(cx + r * 0.1, headY + r * 0.55, cx + r * 0.42, headY + r * 0.28);
+  ctx.moveTo(cx - r * 0.3 + fx, headY + r * 0.34);
+  ctx.quadraticCurveTo(cx + r * 0.1 + fx, headY + r * 0.55, cx + r * 0.42 + fx, headY + r * 0.28);
   ctx.stroke();
   if (lv >= 2) {
     ctx.fillStyle = "#fff";
     ctx.beginPath();
-    ctx.moveTo(cx + r * 0.18, headY + r * 0.42);
-    ctx.lineTo(cx + r * 0.26, headY + r * 0.58);
-    ctx.lineTo(cx + r * 0.33, headY + r * 0.38);
+    ctx.moveTo(cx + r * 0.18 + fx, headY + r * 0.42);
+    ctx.lineTo(cx + r * 0.26 + fx, headY + r * 0.58);
+    ctx.lineTo(cx + r * 0.33 + fx, headY + r * 0.38);
     ctx.closePath(); ctx.fill();
   }
 }
@@ -1720,9 +1753,9 @@ function drawDevilUltimate(ctx, W, H, t, lv = 5) {
   ctx.moveTo(tx - 8, ty + 5); ctx.lineTo(tx + 9, ty - 1); ctx.lineTo(tx - 2, ty - 11);
   ctx.closePath(); ctx.fill();
 
-  /* 翼: 大きく広げたコウモリ翼 (Lv4+) */
+  /* 翼: 大きく広げたコウモリ翼 (Lv4+)。近い側が大きく開く */
   if (lv >= 4) for (const s of [-1, 1]) {
-    const wk = lv === 5 ? 1 : 0.75;
+    const wk = (lv === 5 ? 1 : 0.75) * (1 + s * drawYaw * 0.28);
     ctx.save();
     ctx.translate(cx, 150 + breathe * 0.4);
     ctx.scale(s * wk, wk);
@@ -1873,11 +1906,12 @@ function drawDevilUltimate(ctx, W, H, t, lv = 5) {
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.closePath(); ctx.fill();
-  // 角: 縞模様の巻き角（レベルで伸びる）
+  // 角: 縞模様の巻き角（レベルで伸びる・近い側が大きい）
+  const hfx = 27 * drawYaw * 0.4;
   for (const s of [-1, 1]) {
-    const hk = 0.62 + (lv - 3) * 0.19; // 3:0.62 → 5:1.0
+    const hk = (0.62 + (lv - 3) * 0.19) * (1 + s * drawYaw * 0.3);
     ctx.save();
-    ctx.translate(cx + s * 13, hy - 16);
+    ctx.translate(cx + s * 13 + hfx * 0.7, hy - 16);
     ctx.scale(s * hk, hk);
     const hg = ctx.createLinearGradient(0, 0, 40, -70);
     hg.addColorStop(0, "#a88d58"); hg.addColorStop(0.5, "#d8c08a"); hg.addColorStop(1, "#efe2bc");
@@ -1912,46 +1946,48 @@ function drawDevilUltimate(ctx, W, H, t, lv = 5) {
   ctx.quadraticCurveTo(cx, hy + 28, cx - 12, hy + 22);
   ctx.quadraticCurveTo(cx - 26, hy + 6, cx - 22, hy - 14);
   ctx.closePath(); ctx.fill();
-  // 尖り耳
+  // 尖り耳（遠い側は隠れる）
   ctx.fillStyle = "#9c2820";
   for (const s of [-1, 1]) {
+    if (s * drawYaw < -0.45) continue;
     ctx.beginPath();
-    ctx.moveTo(cx + s * 20, hy - 4);
-    ctx.lineTo(cx + s * 34, hy - 12);
-    ctx.lineTo(cx + s * 21, hy + 6);
+    ctx.moveTo(cx + s * 20 + hfx * 0.5, hy - 4);
+    ctx.lineTo(cx + s * (34 + s * drawYaw * 8) + hfx * 0.5, hy - 12);
+    ctx.lineTo(cx + s * 21 + hfx * 0.5, hy + 6);
     ctx.closePath(); ctx.fill();
   }
-  // 眼: 白熱光
+  // 眼: 白熱光（遠い側は細く）
   ctx.save();
   ctx.shadowColor = "#fff"; ctx.shadowBlur = (lv === 5 ? 12 : 6) * dim;
   ctx.fillStyle = `rgba(255,255,255,${0.75 + 0.25 * dim})`;
   for (const s of [-1, 1]) {
+    const ew = 1 + s * drawYaw * 0.3;
     ctx.beginPath();
-    ctx.moveTo(cx + s * 4, hy - 6);
-    ctx.lineTo(cx + s * 15, hy - 11);
-    ctx.lineTo(cx + s * 13, hy - 2);
+    ctx.moveTo(cx + s * 4 * ew + hfx, hy - 6);
+    ctx.lineTo(cx + s * 15 * ew + hfx, hy - 11);
+    ctx.lineTo(cx + s * 13 * ew + hfx, hy - 2);
     ctx.closePath(); ctx.fill();
   }
   ctx.restore();
   // 怒りの眉間皺
   ctx.strokeStyle = "#4a0a10"; ctx.lineWidth = 2; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(cx - 6, hy - 12); ctx.lineTo(cx, hy - 8); ctx.lineTo(cx + 6, hy - 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 6 + hfx, hy - 12); ctx.lineTo(cx + hfx, hy - 8); ctx.lineTo(cx + 6 + hfx, hy - 12); ctx.stroke();
   // 口: 咆哮 + 牙
   ctx.fillStyle = "#2a0508";
-  ctx.beginPath(); ctx.ellipse(cx, hy + 14, 13, 9 + (reduceMotion ? 0 : Math.sin(t * 2.2) * 1.5), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + hfx, hy + 14, 13 * (1 - Math.abs(drawYaw) * 0.18), 9 + (reduceMotion ? 0 : Math.sin(t * 2.2) * 1.5), 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#f2ede2";
   for (let c = -2; c <= 2; c++) { // 上牙
     ctx.beginPath();
-    ctx.moveTo(cx + c * 5 - 2, hy + 7);
-    ctx.lineTo(cx + c * 5, hy + 13 + (Math.abs(c) === 2 ? 3 : 0));
-    ctx.lineTo(cx + c * 5 + 2, hy + 7);
+    ctx.moveTo(cx + c * 5 - 2 + hfx, hy + 7);
+    ctx.lineTo(cx + c * 5 + hfx, hy + 13 + (Math.abs(c) === 2 ? 3 : 0));
+    ctx.lineTo(cx + c * 5 + 2 + hfx, hy + 7);
     ctx.closePath(); ctx.fill();
   }
   for (let c = -1; c <= 1; c++) { // 下牙
     ctx.beginPath();
-    ctx.moveTo(cx + c * 6 - 2, hy + 21);
-    ctx.lineTo(cx + c * 6, hy + 16);
-    ctx.lineTo(cx + c * 6 + 2, hy + 21);
+    ctx.moveTo(cx + c * 6 - 2 + hfx, hy + 21);
+    ctx.lineTo(cx + c * 6 + hfx, hy + 16);
+    ctx.lineTo(cx + c * 6 + 2 + hfx, hy + 21);
     ctx.closePath(); ctx.fill();
   }
 
@@ -2100,27 +2136,15 @@ function drawBattle(t) {
   ctx.fillStyle = "rgba(255,255,255,.04)";
   ctx.beginPath(); ctx.ellipse(W / 2, H - 14, W * 0.46, 16, 0, 0, Math.PI * 2); ctx.fill();
 
-  /* +5 で決着。相手はもう倒れている */
+  /* +5 で決着。相手はもう倒れている。振り付けは loop で確定済み */
   const saintDown = dLv >= LV_MAX;
   const devilDown = sLv >= LV_MAX;
   const fighting = !saintDown && !devilDown && !reduceMotion;
-
-  /* 所作サイクル: 構え→跳躍→半身に溜め→踏み込み→撃→戻り。攻撃は交互 */
-  const poseS = fighting ? poseFor(sLv, t, 0) : null;
-  const poseD = fighting ? poseFor(dLv, t, BATTLE_CYCLE / 2) : null;
-  let shake = 0;
-  if (fighting) {
-    const hitOnD = hitAmount(t, 0) * (1 + Math.max(0, sLv) * 0.15);          // 仏の攻撃が悪魔に
-    const hitOnS = hitAmount(t, BATTLE_CYCLE / 2) * (1 + Math.max(0, dLv) * 0.15); // 悪魔の攻撃が仏に
-    if (hitOnD > 0) { poseD.dx -= 26 * hitOnD; poseD.rot -= 0.14 * hitOnD; poseD.dx += Math.sin(t * 55) * 4 * hitOnD; }
-    if (hitOnS > 0) { poseS.dx -= 26 * hitOnS; poseS.rot -= 0.14 * hitOnS; poseS.dx += Math.sin(t * 55) * 4 * hitOnS; }
-    shake = Math.max(hitOnS, hitOnD);
-  }
   ctx.save();
-  if (shake > 0.55) ctx.translate(Math.sin(t * 70) * 3 * shake, Math.cos(t * 63) * 2 * shake);
+  if (curShake > 0.55) ctx.translate(Math.sin(t * 70) * 3 * curShake, Math.cos(t * 63) * 2 * curShake);
 
-  drawFighter(ctx, saintC, 36, saintDown, false, t, H, poseS);
-  drawFighter(ctx, devilC, W - 280 - 36, devilDown, true, t, H, poseD);
+  drawFighter(ctx, saintC, 36, saintDown, false, t, H, curPoseS);
+  drawFighter(ctx, devilC, W - 280 - 36, devilDown, true, t, H, curPoseD);
 
   if (fighting) {
     drawStrikeFx(ctx, "saint", t, 0, sLv, W, H);
@@ -2214,33 +2238,40 @@ function battlePhase(t, offset) {
 
 function poseFor(lv, t, offset) {
   const p = battlePhase(t, offset);
-  const P = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1 };
+  // yaw: 横回転(-1..1)。パーツ単位のパララックスで立体的に振り向く(拡縮では表現しない)
+  const P = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, yaw: 0 };
   const power = 1 + Math.max(0, lv) * 0.15;
-  if (p < 2.2) {                       // 構え: 小さく上下
+  if (p < 2.2) {                       // 構え: 揺れながら小さく左右を向く
     P.dy = Math.sin(p * 3.2) * 2.5;
+    P.yaw = Math.sin(t * 0.7) * 0.18;
   } else if (p < 2.9) {                // 跳躍
     const u = (p - 2.2) / 0.7;
     P.dy = -Math.sin(Math.PI * u) * 30 * power;
-    P.sy = 1 + Math.sin(Math.PI * u) * 0.06;
-    P.sx = 1 - Math.sin(Math.PI * u) * 0.05;
-  } else if (p < 4.0) {                // 半身にひねって力を溜める(横を向く)
+    P.sy = 1 + Math.sin(Math.PI * u) * 0.05;
+  } else if (p < 4.0) {                // 振り返って力を溜める(体ごと外側を向く)
     const u = Math.sin(Math.PI * (p - 2.9) / 1.1);
-    P.sx = 1 - 0.42 * u;
+    P.yaw = -0.85 * u;
     P.dx = -14 * u;
-    P.rot = -0.10 * u;
-  } else if (p < 4.5) {                // 踏み込み
+    P.rot = -0.08 * u;
+    P.sx = 1 - 0.10 * Math.abs(P.yaw); // 奥行き分のわずかな見かけ幅
+  } else if (p < 4.5) {                // 踏み込み(正面へ向き直りながら)
     const u = (p - 4.0) / 0.5;
     const e = u * u * (3 - 2 * u);
     P.dx = e * (44 + Math.max(0, lv) * 10);
     P.rot = 0.18 * e;
+    P.yaw = 0.25 * e;
   } else if (p < 4.8) {                // 撃つ
     P.dx = 44 + Math.max(0, lv) * 10;
     P.rot = 0.18;
+    P.yaw = 0.25;
   } else if (p < 5.6) {                // 引き戻し
     const u = (p - 4.8) / 0.8;
     const e = 1 - u * u;
     P.dx = (44 + Math.max(0, lv) * 10) * e;
     P.rot = 0.18 * e;
+    P.yaw = 0.25 * e;
+  } else {                             // 残心: 揺れ
+    P.yaw = Math.sin(t * 0.7) * 0.18;
   }
   return P;
 }
@@ -2308,12 +2339,27 @@ function drawStrikeFx(ctx, kind, t, offset, lv, W, H) {
 
 /* ---------- アニメーションループ ---------- */
 let lastDraw = 0;
+let curPoseS = null, curPoseD = null, curShake = 0;
 function loop() {
   const ms = performance.now();
   const t = ms / 1000;
   const appVisible = me && !$("app").classList.contains("hidden");
   if (appVisible && (!reduceMotion || ms - lastDraw > 500)) {
     lastDraw = ms;
+    // 振り付けを先に確定し、キャラ描画(yaw)と合成(位置)の両方が参照する
+    const saintDown = curDevilLv >= LV_MAX;
+    const devilDown = curSaintLv >= LV_MAX;
+    const fighting = !saintDown && !devilDown && !reduceMotion;
+    curPoseS = fighting ? poseFor(curSaintLv, t, 0) : null;
+    curPoseD = fighting ? poseFor(curDevilLv, t, BATTLE_CYCLE / 2) : null;
+    curShake = 0;
+    if (fighting) {
+      const hitOnD = hitAmount(t, 0) * (1 + Math.max(0, curSaintLv) * 0.15);
+      const hitOnS = hitAmount(t, BATTLE_CYCLE / 2) * (1 + Math.max(0, curDevilLv) * 0.15);
+      if (hitOnD > 0) { curPoseD.dx -= 26 * hitOnD; curPoseD.rot -= 0.14 * hitOnD; curPoseD.dx += Math.sin(t * 55) * 4 * hitOnD; }
+      if (hitOnS > 0) { curPoseS.dx -= 26 * hitOnS; curPoseS.rot -= 0.14 * hitOnS; curPoseS.dx += Math.sin(t * 55) * 4 * hitOnS; }
+      curShake = Math.max(hitOnS, hitOnD);
+    }
     drawCharacter(saintC, "saint", curSaintLv, t);
     drawCharacter(devilC, "devil", curDevilLv, t);
     drawBattle(t);
