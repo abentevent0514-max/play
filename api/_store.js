@@ -17,7 +17,7 @@ async function redis(cmd) {
 }
 
 export function emptyState() {
-  return { accounts: [], requests: [], usedTickets: [], resets: [] };
+  return { accounts: [], requests: [], usedTickets: [], resets: [], settled: [] };
 }
 
 export async function load() {
