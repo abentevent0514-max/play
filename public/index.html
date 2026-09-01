@@ -327,6 +327,7 @@
   <span class="tagline">罪と罰と幸福。</span>
   <div class="who hidden" id="whoBox">
     <span><b id="whoName"></b> として参拝中</span>
+    <button id="bgmBtn" type="button" title="BGMの切り替え">🎵</button>
     <button id="sndBtn" type="button" title="効果音の切り替え">🔊</button>
     <button id="logoutBtn" type="button">ログアウト</button>
   </div>
@@ -638,9 +639,18 @@ $("btnLate").addEventListener("click", () => declare("late", $("btnLate")));
 /* 天秤方式: 徳と業は1本の天秤。
    約束を守る → +1 / 遅刻 → −1。プラス側なら仏が成長（悪魔は無）、
    マイナス側なら悪魔が成長（仏は無）。両者が同時に立つことはない。 */
+/* リセット境界: meta由来(旧) + requests内のsettle記録(現行) を統合 */
+function getResetTimes() {
+  const fromReq = requests
+    .filter((r) => r.type === "settle")
+    .map((r) => r.decidedAt || r.createdAt || 0);
+  return resetTimes.concat(fromReq).sort((a, b) => a - b);
+}
+
 function pointsFor(accId) {
-  // 券の消化(=精算)以降のイベントだけで天秤を計算する
-  const since = resetTimes.length ? resetTimes[resetTimes.length - 1] : 0;
+  // 精算以降のイベントだけで天秤を計算する
+  const rts = getResetTimes();
+  const since = rts.length ? rts[rts.length - 1] : 0;
   let kept = 0, late = 0, bal = 0;
   for (const r of requests) {
     if (r.status !== "approved" || r.from !== accId) continue;
@@ -754,9 +764,13 @@ function renderApp() {
   } else {
     for (const r of done) {
       const li = document.createElement("li");
-      const cls = r.type === "kept" ? "h-kept" : "h-late";
-      const verb = r.type === "kept" ? "約束を守った" : "遅刻した";
-      li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="${cls}">${esc(nameOf(r.from))} が ${verb}</span>`;
+      if (r.type === "settle") {
+        li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="h-kept">🎫 ${esc(nameOf(r.from))} が「${esc(r.label || "")}」を精算 — 天秤リセット</span>`;
+      } else {
+        const cls = r.type === "kept" ? "h-kept" : "h-late";
+        const verb = r.type === "kept" ? "約束を守った" : "遅刻した";
+        li.innerHTML = `<time>${fmtTime(r.decidedAt || r.createdAt)}</time><span class="${cls}">${esc(nameOf(r.from))} が ${verb}</span>`;
+      }
       hist.appendChild(li);
     }
   }
@@ -818,13 +832,18 @@ function renderApp() {
     cbox.appendChild(info);
   }
 
-  // 精算の記録
+  // 精算の記録 (メタ由来の旧記録 + requests内のsettle記録)
+  const settledAll = settledList.concat(
+    requests
+      .filter((r) => r.type === "settle")
+      .map((r) => ({ at: r.decidedAt || r.createdAt, owner: r.from, side: r.side, lv: r.lv, label: r.label }))
+  ).sort((a, b) => (a.at || 0) - (b.at || 0));
   const tl = $("ticketList");
   tl.innerHTML = "";
-  if (settledList.length === 0) {
+  if (settledAll.length === 0) {
     tl.innerHTML = '<li class="t-empty">まだ精算はない。レベルが上がるほど大きな報酬が解放される。</li>';
   } else {
-    for (const s2 of settledList.slice(-20).reverse()) {
+    for (const s2 of settledAll.slice(-20).reverse()) {
       const li = document.createElement("li");
       li.className = "ticket " + (s2.side === "devil" ? "t-late" : "t-kept");
       li.innerHTML =
@@ -863,16 +882,21 @@ function showTicketFanfare(cl) {
   }, 1200);
 }
 
-/* 精算: 記録を残し、双方の強さを0へ戻す。結果は必ず画面に表す */
+/* 精算: サーバーAPIで記録+リセット */
 async function settleClaim(cl, btn) {
-  try {
-    await api("settle", { owner: me.id, side: cl.side, lv: cl.lv, label: cl.label });
-    showSettledFanfare(cl);
-    refresh();
-  } catch (e) {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `⚠ 精算に失敗（${esc(String((e && (e.code || e.message)) || e))}）— もう一度タップ`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await api("settle", { owner: me.id, side: cl.side, lv: cl.lv, label: cl.label });
+      showSettledFanfare(cl);
+      refresh();
+      return;
+    } catch (e) {
+      if (attempt === 0) { await new Promise((r) => setTimeout(r, 450)); continue; }
+      if (btn) {
+        btn.disabled = false;
+        const msg = e ? `${e.code || ""} ${e.message || ""}`.trim() || String(e) : "不明";
+        btn.innerHTML = `⚠ 精算に失敗（${esc(msg)}）— もう一度タップ`;
+      }
     }
   }
 }
@@ -1018,10 +1042,118 @@ const sfx = (() => {
       n.start(t0); n.stop(t0 + 0.36);
     }
   }
-  return { play, toggle() { enabled = !enabled; return enabled; } };
+  return { play, toggle() { enabled = !enabled; return enabled; }, ctx: actx };
 })();
 $("sndBtn").addEventListener("click", () => {
   $("sndBtn").textContent = sfx.toggle() ? "🔊" : "🔇";
+});
+
+/* ---------- BGM (Web Audio 生成の和風アンビエントループ) ---------- */
+const bgm = (() => {
+  let enabled = true, master = null, timer = null, step = 0;
+  const padOscs = [];
+  const BPM = 84, stepD = 60 / BPM / 2; // 8分音符
+  // 律旋法っぽい A ペンタトニック
+  const SCALE = [220.0, 246.94, 293.66, 329.63, 392.0, 440.0, 493.88, 587.33];
+  const MELODY = [
+    0, -1, 2, 3, -1, 4, 3, -1, 2, 0, -1, 1, -1, 2, -1, -1,
+    3, -1, 2, 0, -1, 2, 3, 4, 5, -1, 4, 2, -1, 0, -1, -1,
+  ];
+  function scheduleStep(c, t0, s) {
+    // 鼓動の太鼓
+    if (s % 8 === 0 || s % 16 === 10) {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(85, t0);
+      o.frequency.exponentialRampToValueAtTime(45, t0 + 0.25);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.5, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + 0.35);
+    }
+    // 琴風の旋律
+    const n = MELODY[s % MELODY.length];
+    if (n >= 0 && s % 2 === 0) {
+      const f = SCALE[n];
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.2, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+      o.connect(g); g.connect(master);
+      o.start(t0); o.stop(t0 + 0.7);
+      const o2 = c.createOscillator(), g2 = c.createGain();
+      o2.type = "sine"; o2.frequency.value = f / 2;
+      g2.gain.setValueAtTime(0.0001, t0);
+      g2.gain.linearRampToValueAtTime(0.07, t0 + 0.012);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+      o2.connect(g2); g2.connect(master);
+      o2.start(t0); o2.stop(t0 + 0.6);
+    }
+  }
+  function start() {
+    if (timer || !enabled) return;
+    const c = sfx.ctx();
+    if (!c || c.state !== "running") return;
+    master = c.createGain();
+    master.gain.setValueAtTime(0.0001, c.currentTime);
+    master.gain.linearRampToValueAtTime(0.15, c.currentTime + 2.5); // ゆっくりフェードイン
+    master.connect(c.destination);
+    // ドローンのパッド
+    const padG = c.createGain(); padG.gain.value = 0.14;
+    const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 620;
+    padG.connect(lp); lp.connect(master);
+    for (const f of [110, 164.81]) {
+      for (const det of [1, 1.004]) {
+        const o = c.createOscillator();
+        o.type = det === 1 ? "triangle" : "sine";
+        o.frequency.value = f * det;
+        o.connect(padG); o.start();
+        padOscs.push(o);
+      }
+    }
+    let next = c.currentTime + 0.1;
+    timer = setInterval(() => {
+      const cc = sfx.ctx();
+      if (!cc || !master) return;
+      while (next < cc.currentTime + 0.6) {
+        scheduleStep(cc, next, step);
+        next += stepD;
+        step = (step + 1) % (MELODY.length * 2);
+      }
+    }, 200);
+  }
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; }
+    const c = sfx.ctx();
+    if (master && c) {
+      master.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.5);
+      const m = master;
+      setTimeout(() => { try { m.disconnect(); } catch (e) {} }, 700);
+    }
+    padOscs.forEach((o) => { try { o.stop(); } catch (e) {} });
+    padOscs.length = 0;
+    master = null;
+    step = 0;
+  }
+  return {
+    kick() {
+      if (!enabled || timer) return;
+      let tries = 0;
+      const tryStart = () => {
+        start();
+        if (!timer && tries++ < 10) setTimeout(tryStart, 300); // Context起動待ちのリトライ
+      };
+      tryStart();
+    },
+    toggle() { enabled = !enabled; if (enabled) this.kick(); else stop(); return enabled; },
+  };
+})();
+// 最初のタップでAudioContextが起きたらBGM開始
+document.addEventListener("pointerdown", () => { setTimeout(() => bgm.kick(), 150); }, { once: true });
+$("bgmBtn").addEventListener("click", () => {
+  $("bgmBtn").textContent = bgm.toggle() ? "🎵" : "🔕";
 });
 
 /* 攻撃フェーズの通過を検知して効果音を鳴らす */
