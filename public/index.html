@@ -430,12 +430,27 @@
 (function () {
   var op = document.getElementById("opening");
   function go() {
+    if (op.classList.contains("done")) return;
     op.classList.add("done");
-    setTimeout(function () { op.classList.add("hidden"); }, 850);
+    // 閉じタップのすり抜け防止: フェード中は下の画面への入力をすべて吸収する
+    var shield = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+    var capOpt = { capture: true, passive: false };
+    document.addEventListener("pointerdown", shield, capOpt);
+    document.addEventListener("pointerup", shield, capOpt);
+    document.addEventListener("click", shield, capOpt);
+    document.addEventListener("touchstart", shield, capOpt);
+    document.addEventListener("touchend", shield, capOpt);
+    setTimeout(function () {
+      op.classList.add("hidden");
+      document.removeEventListener("pointerdown", shield, capOpt);
+      document.removeEventListener("pointerup", shield, capOpt);
+      document.removeEventListener("click", shield, capOpt);
+      document.removeEventListener("touchstart", shield, capOpt);
+      document.removeEventListener("touchend", shield, capOpt);
+    }, 850);
   }
-  op.addEventListener("pointerdown", go);
+  op.addEventListener("pointerup", go);
   op.addEventListener("click", go);
-  op.addEventListener("touchstart", go, { passive: true });
   setTimeout(go, 6000);
 })();
 /* 実行時エラーを画面上部に赤帯で表示(スマホでの原因調査用) */
@@ -3255,7 +3270,7 @@ function drawParticles(ctx, kind, lv, t, W, H) {
     op.classList.add("done");
     setTimeout(() => { op.classList.add("hidden"); opAlive = false; }, 850);
   }
-  op.addEventListener("pointerdown", dismiss);
+  // タップでの閉じは冒頭の独立スクリプト側が担当(すり抜けタップ防止ガード付き)
   setTimeout(dismiss, reduceMotion ? 1500 : 4600);
 })();
 
