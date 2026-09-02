@@ -424,6 +424,34 @@
     <p class="op-skip">タップで始める</p>
   </div>
 </div>
+<script>
+/* オープニング突破は本体スクリプトから独立させる:
+   アプリ内ブラウザ等で本体が初期化に失敗しても、タップ/時間経過で必ず先へ進める */
+(function () {
+  var op = document.getElementById("opening");
+  function go() {
+    op.classList.add("done");
+    setTimeout(function () { op.classList.add("hidden"); }, 850);
+  }
+  op.addEventListener("pointerdown", go);
+  op.addEventListener("click", go);
+  op.addEventListener("touchstart", go, { passive: true });
+  setTimeout(go, 6000);
+})();
+/* 実行時エラーを画面上部に赤帯で表示(スマホでの原因調査用) */
+window.addEventListener("error", function (e) {
+  try {
+    var b = document.getElementById("errbar");
+    if (!b) {
+      b = document.createElement("div");
+      b.id = "errbar";
+      b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a1020;color:#ffdfe4;font:11px/1.5 monospace;padding:4px 8px;word-break:break-all";
+      document.body.appendChild(b);
+    }
+    b.textContent = "⚠ " + (e.message || "エラー") + (e.lineno ? " @" + e.lineno : "");
+  } catch (_) {}
+});
+</script>
 
 <!-- レベルアップ演出 -->
 <div class="fanfare" id="fanfare" role="dialog" aria-modal="true">
