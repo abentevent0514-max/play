@@ -409,7 +409,8 @@
         役割制 — 1人目の登録者は🪷仏の使い手(約束を守ると仏が育つ)、2人目は😈悪魔の使い手(遅刻すると悪魔が育つ)。<br>
         悪魔の使い手のごほうび: +1 ジュース ／ +2 アイス ／ +3 コンビニ1品 ／ +4 ご飯1回分 ／ +5 3000円以上のご飯<br>
         仏の使い手のごほうび: +3 アイス ／ +5 5000円のご飯<br>
-        券はいまのレベルの1枚だけ(上書き式・共存しない)。1枚使うと精算＝双方の強さは0にリセット。
+        券はいまのレベルの1枚だけ(上書き式・共存しない)。1枚使うと精算＝双方の強さは0にリセット。<br>
+        相方が未登録の間はひとりモード: 守ると仏が育ち、遅刻すると悪魔が育つ(券も1人で両方獲得)。
       </p>
       <ul id="ticketList"></ul>
     </div>
@@ -773,7 +774,7 @@ function otherId(id) {
    上書き式で各側とも現レベル以下で最高の1枚だけ。精算で双方0=全消滅 */
 function computeTickets() {
   const tickets = [];
-  const saintKeeper = accounts[0], devilKeeper = accounts[1];
+  const saintKeeper = accounts[0], devilKeeper = accounts[1] || saintKeeper; // 相方未登録=ひとりモード
   const sLv = saintKeeper ? clampLv(pointsFor(saintKeeper.id).bal) : 0;
   const dLv = devilKeeper ? clampLv(-pointsFor(devilKeeper.id).bal) : 0;
   let dn = 0, sn = 0;
@@ -810,8 +811,9 @@ function renderApp() {
   if (!me || !$("app") || $("app").classList.contains("hidden")) { renderRoster(); return; }
 
   // 役割制: 1人目の登録者=仏の使い手(約束を守ると仏が育つ) / 2人目=悪魔の使い手(遅刻すると悪魔が育つ)
+  // 相方が未登録の間は「ひとりモード」= 1人目の守で仏が育ち、遅刻で悪魔が育つ(天秤式)
   const saintKeeper = accounts[0] || null;
-  const devilKeeper = accounts[1] || null;
+  const devilKeeper = accounts[1] || saintKeeper;
   const ps = saintKeeper ? pointsFor(saintKeeper.id) : { kept: 0, late: 0, bal: 0 };
   const pd = devilKeeper ? pointsFor(devilKeeper.id) : { kept: 0, late: 0, bal: 0 };
   const sLv = clampLv(ps.bal), dLv = clampLv(-pd.bal);
@@ -830,14 +832,20 @@ function renderApp() {
 
   // 役割の表示
   const partner = accounts.find((a) => a.id !== me.id);
-  const roleLabel = (acc) =>
-    saintKeeper && acc.id === saintKeeper.id
-      ? "🪷 仏の使い手 — 約束を守って仏を育てる"
-      : "😈 悪魔の使い手 — 遅刻して悪魔を育てる";
   const myAcc = accounts.find((a) => a.id === me.id);
-  $("partnerBox").innerHTML =
-    (myAcc ? `<b>あなた（${esc(myAcc.name)}）</b>: ${roleLabel(myAcc)}<br>` : "") +
-    (partner ? `<b>${esc(partner.name)}</b>: ${roleLabel(partner)}` : "相方はまだ登録されていません。");
+  if (myAcc && !partner) {
+    $("partnerBox").innerHTML =
+      `<b>あなた（${esc(myAcc.name)}）</b>: 🪷😈 ひとりモード — 守ると仏が育ち、遅刻すると悪魔が育つ<br>` +
+      `相方が登録すると、1人目=仏・2人目=悪魔の役割分担になる。`;
+  } else {
+    const roleLabel = (acc) =>
+      saintKeeper && acc.id === saintKeeper.id
+        ? "🪷 仏の使い手 — 約束を守って仏を育てる"
+        : "😈 悪魔の使い手 — 遅刻して悪魔を育てる";
+    $("partnerBox").innerHTML =
+      (myAcc ? `<b>あなた（${esc(myAcc.name)}）</b>: ${roleLabel(myAcc)}<br>` : "") +
+      (partner ? `<b>${esc(partner.name)}</b>: ${roleLabel(partner)}` : "相方はまだ登録されていません。");
+  }
 
   // 因果帳（新しい順・直近30件）
   const hist = $("historyList");
