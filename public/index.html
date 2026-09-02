@@ -1269,6 +1269,7 @@ function soundCues(t, fighting) {
 /* ================= Three.js 決戦ステージ (本物の3D) ================= */
 const T = window.THREE;
 const stage3d = (() => {
+  try {
   const canvas = $("battleCanvas");
   const renderer = new T.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -1303,6 +1304,7 @@ const stage3d = (() => {
   ground.receiveShadow = true;
   scene.add(ground);
   return { renderer, scene, camera, goldL, oniL };
+  } catch (e) { return null; } // WebGL不可(アプリ内ブラウザ等)。2D簡易ステージに切り替える
 })();
 
 function mat3d(color, opts) {
@@ -1850,6 +1852,7 @@ function applyPose(rig, pose, dir, baseX, t, down, react) {
 
 /* エフェクト用の共有メッシュ */
 const fx3d = (() => {
+  if (!stage3d) return null;
   const beam = new T.Mesh(new T.CylinderGeometry(3.2, 3.2, 1, 10, 1, true),
     new T.MeshBasicMaterial({ color: 0xfff2cc, transparent: true, opacity: 0.9 }));
   beam.rotation.z = Math.PI / 2;
@@ -1884,15 +1887,40 @@ function ensureRig(kind, lv, cur) {
   return r;
 }
 
+/* WebGLが使えない環境(アプリ内ブラウザ等)用の2D簡易ステージ */
+let stage2d = null;
+function render2d(t, sLv, dLv) {
+  if (!stage2d) {
+    const mk = () => {
+      const c = document.createElement("canvas");
+      c.width = 320; c.height = 340;
+      return { c, ctx: c.getContext("2d"), W: 320, H: 340 };
+    };
+    stage2d = { ctx: $("battleCanvas").getContext("2d"), s: mk(), d: mk() };
+  }
+  const ctx = stage2d.ctx;
+  if (!ctx) return;
+  ctx.clearRect(0, 0, 640, 340);
+  ctx.fillStyle = "#0d0a18";
+  ctx.fillRect(0, 0, 640, 340);
+  ctx.fillStyle = "#1b1430";
+  ctx.beginPath(); ctx.ellipse(320, 330, 320, 42, 0, 0, Math.PI * 2); ctx.fill();
+  drawCharacter(stage2d.s, "saint", sLv, t);
+  drawCharacter(stage2d.d, "devil", dLv, t);
+  ctx.drawImage(stage2d.s.c, 0, 0);
+  ctx.save(); ctx.translate(640, 0); ctx.scale(-1, 1); ctx.drawImage(stage2d.d.c, 0, 0); ctx.restore();
+}
+
 function render3d(t) {
   const sLv = curSaintLv, dLv = curDevilLv;
-  rigS = ensureRig("saint", sLv, rigS);
-  rigD = ensureRig("devil", dLv, rigD);
   const saintDown = dLv >= LV_MAX;
   const devilDown = sLv >= LV_MAX;
   const fighting = !saintDown && !devilDown && !reduceMotion;
   soundCues(t, fighting);
   bgm.setLevels(Math.max(sLv, dLv)); // Lv+4以上でラスボス戦BGMへ
+  if (!stage3d) { render2d(t, sLv, dLv); return; } // WebGL不可: 2D簡易ステージで戦う
+  rigS = ensureRig("saint", sLv, rigS);
+  rigD = ensureRig("devil", dLv, rigD);
 
   // ランクで場の光が変わる
   stage3d.goldL.intensity = 0.3 + ((sLv - LV_MIN) / 9) * 2.4;
