@@ -399,9 +399,10 @@
     <div class="tickets">
       <h3>報 酬 と 精 算</h3>
       <p class="t-legend">
-        報酬はレベルで決まる —
+        券はいまのレベルに連動 —
         遅刻ペナルティ: +1 ジュース ／ +2 アイス ／ +3 コンビニ1品 ／ +4 ご飯1回分 ／ +5 3000円以上のご飯<br>
-        聖人ごほうび: +3 アイス ／ +5 5000円のご飯（精算すると双方の強さは0にリセット）
+        聖人ごほうび: +3 アイス ／ +5 5000円のご飯<br>
+        レベルが上がると下位の券ごと引き継ぎ、下がると取得レベルを割った券は手放す。1枚使うと精算＝双方0にリセットで残りの券も消える。
       </p>
       <ul id="ticketList"></ul>
     </div>
@@ -491,9 +492,11 @@ const DEVIL_EVENTS = [
 ];
 const eventText = (kind, lv) => (kind === "saint" ? SAINT_EVENTS : DEVIL_EVENTS)[lv - LV_MIN];
 
-/* レベル到達で発行される券。
-   悪魔Lv到達 = 遅刻ペナルティ → 相手が「おごられ券」を獲得。
-   聖人Lv到達 = ごほうび → 本人が「ごほうび券」を獲得。 */
+/* 現在レベルに連動する券。
+   悪魔Lv+N = 遅刻ペナルティ → 相手が Lv1..N の「おごられ券」を保持。
+   聖人Lv+N = ごほうび → 本人が Lv1..N の「ごほうび券」を保持。
+   レベルが上がれば下位の券は引き継がれ、下がれば取得レベルを割った券だけ消える。
+   使う(精算)と双方0にリセット = 残りの券もすべて消える。 */
 const DEVIL_REWARDS = { 1: "ジュース", 2: "アイス", 3: "コンビニ1品", 4: "ご飯1回分", 5: "3000円以上のご飯" };
 const SAINT_REWARDS = { 3: "アイス", 5: "5000円のご飯" };
 
@@ -667,52 +670,30 @@ function otherId(id) {
   return o ? o.id : null;
 }
 
-/* 履歴から券の発行を導出。レベルを新たに踏むたびに1枚（再到達でも再発行） */
+/* 現在レベルから手持ち券を導出。上がれば増え、取得レベルを割ると消える。精算で全消滅 */
 function computeTickets() {
   const tickets = [];
-  const count = {}; // 同じ券の再発行を区別する連番
-  const rts = getResetTimes();
   for (const acc of accounts) {
-    let bal = 0, prevS = 0, prevD = 0, ri = 0;
-    for (const r of requests) {
-      if (r.status !== "approved" || r.from !== acc.id) continue;
-      if (r.type !== "kept" && r.type !== "late") continue; // settle等は天秤に数えない
-      const evAt = r.decidedAt || r.createdAt || 0;
-      while (ri < rts.length && rts[ri] <= evAt) {
-        bal = 0; prevS = 0; prevD = 0; ri++; // 精算をまたいだら天秤は0から
-      }
-      bal += r.type === "kept" ? 1 : -1;
-      const s = clampLv(bal), d = clampLv(-bal);
-      if (d > prevD) {
-        for (let n = Math.max(1, prevD + 1); n <= d; n++) {
-          if (!DEVIL_REWARDS[n]) continue;
-          const base = `${acc.id}.devil.${n}`;
-          count[base] = (count[base] || 0) + 1;
-          tickets.push({
-            key: `${base}.${count[base]}`,
-            kind: "penalty", lv: n, label: DEVIL_REWARDS[n],
-            ownerId: otherId(acc.id), payerId: acc.id,
-            at: r.decidedAt || r.createdAt,
-          });
-        }
-      }
-      if (s > prevS) {
-        for (let n = Math.max(1, prevS + 1); n <= s; n++) {
-          if (!SAINT_REWARDS[n]) continue;
-          const base = `${acc.id}.saint.${n}`;
-          count[base] = (count[base] || 0) + 1;
-          tickets.push({
-            key: `${base}.${count[base]}`,
-            kind: "reward", lv: n, label: SAINT_REWARDS[n],
-            ownerId: acc.id, payerId: otherId(acc.id),
-            at: r.decidedAt || r.createdAt,
-          });
-        }
-      }
-      prevS = s; prevD = d;
+    const { bal } = pointsFor(acc.id);
+    const s = clampLv(bal), d = clampLv(-bal);
+    for (let n = 1; n <= d; n++) {
+      if (!DEVIL_REWARDS[n]) continue;
+      tickets.push({
+        key: `${acc.id}.devil.${n}`,
+        kind: "penalty", lv: n, label: DEVIL_REWARDS[n],
+        ownerId: otherId(acc.id), payerId: acc.id,
+      });
+    }
+    for (let n = 1; n <= s; n++) {
+      if (!SAINT_REWARDS[n]) continue;
+      tickets.push({
+        key: `${acc.id}.saint.${n}`,
+        kind: "reward", lv: n, label: SAINT_REWARDS[n],
+        ownerId: acc.id, payerId: otherId(acc.id),
+      });
     }
   }
-  return tickets.sort((a, b) => a.at - b.at);
+  return tickets.sort((a, b) => b.lv - a.lv);
 }
 
 let ticketArmed = { key: null, until: 0 };
@@ -778,26 +759,23 @@ function renderApp() {
     }
   }
 
-  // 発行型チケット: レベルを踏んだ瞬間に発行され、退化しても使うまで残る
+  // レベル連動チケット: 現在レベル以下の券を保持。レベルを割ると消え、精算で全消滅
   const tix = computeTickets();
-  const usedKeys = new Set(usedTicketKeys);
-  for (const r of requests) if (r.type === "settle" && r.key) usedKeys.add(r.key);
-  for (const s0 of settledList) if (s0.key) usedKeys.add(s0.key);
 
   const cbox = $("claimBox");
   cbox.innerHTML = "";
-  const myTickets = tix.filter((tk) => tk.ownerId === me.id && !usedKeys.has(tk.key));
+  const myTickets = tix.filter((tk) => tk.ownerId === me.id);
   for (const tk of myTickets) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "btn-big btn-ticket";
     const desc = tk.kind === "penalty"
-      ? `${nameOf(tk.payerId)} の遅刻ペナルティ(悪魔Lv+${tk.lv}到達で発行)`
-      : `聖人Lv+${tk.lv}到達のごほうび`;
+      ? `${nameOf(tk.payerId)} の遅刻ペナルティ(悪魔Lv+${tk.lv})`
+      : `聖人Lv+${tk.lv}のごほうび`;
     const armedNow = ticketArmed.key === tk.key && Date.now() < ticketArmed.until;
     b.innerHTML = armedNow
       ? `🎫 相手に見せて、もう一度タップで使う<small>${esc(tk.label)}</small>`
-      : `🎫 チケットを使う — ${esc(tk.label)}<small>${esc(desc)}。使うと精算され双方の強さは0にリセット</small>`;
+      : `🎫 チケットを使う — ${esc(tk.label)}<small>${esc(desc)}。使うと精算され双方0にリセット・残りの券も消える</small>`;
     b.addEventListener("click", () => {
       if (ticketArmed.key === tk.key && Date.now() < ticketArmed.until) {
         ticketArmed = { key: null, until: 0 };
@@ -811,7 +789,7 @@ function renderApp() {
     });
     cbox.appendChild(b);
   }
-  const partnerTickets = tix.filter((tk) => tk.ownerId && tk.ownerId !== me.id && !usedKeys.has(tk.key));
+  const partnerTickets = tix.filter((tk) => tk.ownerId && tk.ownerId !== me.id);
   if (partnerTickets.length) {
     const info = document.createElement("div");
     info.className = "claim-info";
@@ -821,51 +799,49 @@ function renderApp() {
   if (!cbox.children.length) {
     const info = document.createElement("div");
     info.className = "claim-info neutral";
-    info.textContent = "手持ちのチケットはない。レベルを踏んだ瞬間に発行される。";
+    info.textContent = "手持ちのチケットはない。レベルが上がると手に入る。";
     cbox.appendChild(info);
   }
 
-  // チケット台帳(未使用/使用済)
+  // チケット台帳(いま持っている券)
   const tl = $("ticketList");
   tl.innerHTML = "";
   if (tix.length === 0) {
-    tl.innerHTML = '<li class="t-empty">まだ券はない。レベル到達の瞬間に発行される。</li>';
+    tl.innerHTML = '<li class="t-empty">いま持っている券はない。レベルが上がると手に入り、下がると手放す。</li>';
   } else {
-    for (const tk of tix.slice(-20).reverse()) {
-      const used = usedKeys.has(tk.key);
+    for (const tk of tix) {
       const li = document.createElement("li");
-      li.className = "ticket " + (tk.kind === "penalty" ? "t-late" : "t-kept") + (used ? " t-used" : "");
+      li.className = "ticket " + (tk.kind === "penalty" ? "t-late" : "t-kept");
       const ownerName = tk.ownerId ? nameOf(tk.ownerId) : "(相手未登録)";
       const desc = tk.kind === "penalty"
-        ? `${esc(nameOf(tk.payerId))} が悪魔Lv+${tk.lv}に到達 → ${esc(ownerName)} の券`
-        : `${esc(ownerName)} が聖人Lv+${tk.lv}に到達したごほうび`;
+        ? `${esc(nameOf(tk.payerId))} の悪魔Lv+${tk.lv} → ${esc(ownerName)} の券`
+        : `${esc(ownerName)} の聖人Lv+${tk.lv}のごほうび`;
       li.innerHTML =
         `<div class="t-main"><span class="t-label">🎫 ${esc(tk.label)}</span>` +
-        `<span class="t-desc">${fmtTime(tk.at)}　${desc}</span></div>`;
+        `<span class="t-desc">${desc}</span></div>`;
       const mk = document.createElement("span");
       mk.className = "t-usedmark";
-      mk.textContent = used ? "使用済" : (tk.ownerId === me.id ? "未使用（あなたの券）" : "未使用");
+      mk.textContent = tk.ownerId === me.id ? "あなたの券" : "相手の券";
       li.appendChild(mk);
       tl.appendChild(li);
     }
   }
 
-  // 券発行の演出(自分宛て)
-  const mySig = tix.filter((tk) => tk.ownerId === me.id).map((tk) => tk.key).join(",");
+  // 券入手の演出(自分宛て・増えたときのみ)
+  const myKeys = myTickets.map((tk) => tk.key);
   const cKey = "karmacho.claim." + me.id;
   const prevSig = localStorage.getItem(cKey);
-  if (mySig !== (prevSig || "")) {
-    localStorage.setItem(cKey, mySig);
-    if (prevSig !== null) {
-      const newTk = tix.filter((tk) => tk.ownerId === me.id && !(prevSig || "").includes(tk.key)).pop();
-      if (newTk) {
-        showTicketFanfare({
-          label: newTk.label,
-          desc: newTk.kind === "penalty"
-            ? `${nameOf(newTk.payerId)} の遅刻ペナルティ。退化しても使うまで残る`
-            : `聖人Lv+${newTk.lv}到達のごほうび。退化しても使うまで残る`,
-        });
-      }
+  const prevKeys = prevSig ? prevSig.split(",").filter(Boolean) : [];
+  localStorage.setItem(cKey, myKeys.join(","));
+  if (prevSig !== null) {
+    const newTk = myTickets.filter((tk) => !prevKeys.includes(tk.key)).sort((a, b) => a.lv - b.lv).pop();
+    if (newTk) {
+      showTicketFanfare({
+        label: newTk.label,
+        desc: newTk.kind === "penalty"
+          ? `${nameOf(newTk.payerId)} の遅刻ペナルティ。相手のレベルが下がると手放す`
+          : `聖人Lv+${newTk.lv}のごほうび。レベルが下がると手放す`,
+      });
     }
   }
 }
@@ -878,7 +854,7 @@ function showTicketFanfare(cl) {
     f.classList.add("f-saint");
     $("ffKind").textContent = "― 報 酬 が 解 放 ―";
     $("ffLv").textContent = "🎫 " + cl.label;
-    $("ffStory").textContent = cl.desc + "。精算ボタンでいつでも受け取れる。";
+    $("ffStory").textContent = cl.desc + "。「チケットを使う」で精算できる。";
     f.classList.add("show");
   }, 1200);
 }
