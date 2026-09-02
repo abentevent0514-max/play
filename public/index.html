@@ -399,10 +399,10 @@
     <div class="tickets">
       <h3>報 酬 と 精 算</h3>
       <p class="t-legend">
-        券はいまのレベルの1枚だけ(上書き式) —
-        遅刻ペナルティ: +1 ジュース ／ +2 アイス ／ +3 コンビニ1品 ／ +4 ご飯1回分 ／ +5 3000円以上のご飯<br>
-        聖人ごほうび: +3 アイス ／ +5 5000円のご飯<br>
-        レベルが動くと券もそのレベルの内容に入れ替わる(共存しない)。1枚使うと精算＝双方の強さは0にリセット。
+        役割制 — 1人目の登録者は🪷仏の使い手(約束を守ると仏が育つ)、2人目は😈悪魔の使い手(遅刻すると悪魔が育つ)。<br>
+        悪魔の使い手のごほうび: +1 ジュース ／ +2 アイス ／ +3 コンビニ1品 ／ +4 ご飯1回分 ／ +5 3000円以上のご飯<br>
+        仏の使い手のごほうび: +3 アイス ／ +5 5000円のご飯<br>
+        券はいまのレベルの1枚だけ(上書き式・共存しない)。1枚使うと精算＝双方の強さは0にリセット。
       </p>
       <ul id="ticketList"></ul>
     </div>
@@ -680,8 +680,35 @@ async function declare(type, btn) {
   try { await api("request", { from: me.id, type }); refresh(); } catch (ex) {}
   if (btn) setTimeout(() => { btn.disabled = false; }, 800);
 }
-$("btnKept").addEventListener("click", () => declare("kept", $("btnKept")));
-$("btnLate").addEventListener("click", () => declare("late", $("btnLate")));
+/* 記録は2度タップで確定(誤タップ防止の確認ステップ) */
+const declareArmed = { type: null, until: 0 };
+const declareOrig = {};
+for (const [btnId, dtype] of [["btnKept", "kept"], ["btnLate", "late"]]) {
+  const btn = $(btnId);
+  declareOrig[dtype] = btn.innerHTML;
+  btn.addEventListener("click", () => {
+    const now = Date.now();
+    if (declareArmed.type === dtype && now < declareArmed.until) {
+      declareArmed.type = null;
+      btn.innerHTML = declareOrig[dtype];
+      declare(dtype, btn);
+      return;
+    }
+    if (declareArmed.type) { // 反対側の確認表示が残っていれば戻す
+      $(declareArmed.type === "kept" ? "btnKept" : "btnLate").innerHTML = declareOrig[declareArmed.type];
+    }
+    declareArmed.type = dtype;
+    declareArmed.until = now + 5000;
+    btn.innerHTML = (dtype === "kept" ? "🙏 本当に守った？" : "😈 本当に遅刻した？") +
+      "<small>もう一度タップで確定（5秒たつと取り消し）</small>";
+    setTimeout(() => {
+      if (declareArmed.type === dtype && Date.now() >= declareArmed.until) {
+        declareArmed.type = null;
+        btn.innerHTML = declareOrig[dtype];
+      }
+    }, 5100);
+  });
+}
 
 /* ---------- 集計と描画 ---------- */
 /* 天秤方式: 徳と業は1本の天秤。
@@ -714,26 +741,26 @@ function otherId(id) {
   return o ? o.id : null;
 }
 
-/* 現在レベルから手持ち券を導出。上書き式: 各側とも現レベル以下で最高の1枚だけ。精算で全消滅 */
+/* 役割制の券: 仏Lv→1人目(仏の使い手)のごほうび / 悪魔Lv→2人目(悪魔の使い手)のごほうび。
+   上書き式で各側とも現レベル以下で最高の1枚だけ。精算で双方0=全消滅 */
 function computeTickets() {
   const tickets = [];
-  for (const acc of accounts) {
-    const { bal } = pointsFor(acc.id);
-    const s = clampLv(bal), d = clampLv(-bal);
-    let dn = 0, sn = 0;
-    for (let n = 1; n <= d; n++) if (DEVIL_REWARDS[n]) dn = n;
-    for (let n = 1; n <= s; n++) if (SAINT_REWARDS[n]) sn = n;
-    if (dn) tickets.push({
-      key: `${acc.id}.devil.${dn}`,
-      kind: "penalty", lv: dn, label: DEVIL_REWARDS[dn],
-      ownerId: otherId(acc.id), payerId: acc.id,
-    });
-    if (sn) tickets.push({
-      key: `${acc.id}.saint.${sn}`,
-      kind: "reward", lv: sn, label: SAINT_REWARDS[sn],
-      ownerId: acc.id, payerId: otherId(acc.id),
-    });
-  }
+  const saintKeeper = accounts[0], devilKeeper = accounts[1];
+  const sLv = saintKeeper ? clampLv(pointsFor(saintKeeper.id).bal) : 0;
+  const dLv = devilKeeper ? clampLv(-pointsFor(devilKeeper.id).bal) : 0;
+  let dn = 0, sn = 0;
+  for (let n = 1; n <= dLv; n++) if (DEVIL_REWARDS[n]) dn = n;
+  for (let n = 1; n <= sLv; n++) if (SAINT_REWARDS[n]) sn = n;
+  if (dn && devilKeeper) tickets.push({
+    key: `shared.devil.${dn}`,
+    kind: "penalty", lv: dn, label: DEVIL_REWARDS[dn],
+    ownerId: devilKeeper.id, payerId: saintKeeper ? saintKeeper.id : null,
+  });
+  if (sn && saintKeeper) tickets.push({
+    key: `shared.saint.${sn}`,
+    kind: "reward", lv: sn, label: SAINT_REWARDS[sn],
+    ownerId: saintKeeper.id, payerId: devilKeeper ? devilKeeper.id : null,
+  });
   return tickets.sort((a, b) => b.lv - a.lv);
 }
 
@@ -754,32 +781,35 @@ let curSaintWeaken = 0, curDevilWeaken = 0;   // 相手側の成長による弱�
 function renderApp() {
   if (!me || !$("app") || $("app").classList.contains("hidden")) { renderRoster(); return; }
 
-  const { kept, late, bal } = pointsFor(me.id);
-  const sLv = clampLv(bal), dLv = clampLv(-bal);
+  // 役割制: 1人目の登録者=仏の使い手(約束を守ると仏が育つ) / 2人目=悪魔の使い手(遅刻すると悪魔が育つ)
+  const saintKeeper = accounts[0] || null;
+  const devilKeeper = accounts[1] || null;
+  const ps = saintKeeper ? pointsFor(saintKeeper.id) : { kept: 0, late: 0, bal: 0 };
+  const pd = devilKeeper ? pointsFor(devilKeeper.id) : { kept: 0, late: 0, bal: 0 };
+  const sLv = clampLv(ps.bal), dLv = clampLv(-pd.bal);
   curSaintLv = sLv; curDevilLv = dLv;
-  curSaintWeaken = Math.min(1, Math.max(0, -bal) / 4); // 業の高まりが仏を蝕む
-  curDevilWeaken = Math.min(1, Math.max(0, bal) / 4);  // 徳の高まりが悪魔を浄化する
+  curSaintWeaken = Math.min(1, Math.max(0, dLv) / 4); // 悪魔の成長が仏を蝕む
+  curDevilWeaken = Math.min(1, Math.max(0, sLv) / 4); // 仏の成長が悪魔を浄化する
 
-  renderGauge("saint", sLv, `（累計 守${kept}・遅${late}）`);
-  renderGauge("devil", dLv, `（累計 遅${late}・守${kept}）`);
+  renderGauge("saint", sLv, `（${saintKeeper ? saintKeeper.name : "？"}: 守${ps.kept}・遅${ps.late}）`);
+  renderGauge("devil", dLv, `（${devilKeeper ? devilKeeper.name : "？"}: 遅${pd.late}・守${pd.kept}）`);
   $("saintEvent").textContent = eventText("saint", sLv);
   $("devilEvent").textContent = eventText("devil", dLv);
 
-  maybeCelebrate("saint", sLv, kept + late === 0);
-  maybeCelebrate("devil", dLv, kept + late === 0);
+  const noEvents = ps.kept + ps.late + pd.kept + pd.late === 0;
+  maybeCelebrate("saint", sLv, noEvents);
+  maybeCelebrate("devil", dLv, noEvents);
 
-  // 相手の状況
+  // 役割の表示
   const partner = accounts.find((a) => a.id !== me.id);
-  if (partner) {
-    const pc = pointsFor(partner.id);
-    const pSLv = clampLv(pc.bal);
-    const pDLv = clampLv(-pc.bal);
-    $("partnerBox").innerHTML =
-      `<b>${esc(partner.name)}</b> の現在<br>` +
-      `<span class="chip">聖人 Lv${fmtLv(pSLv)}（守${pc.kept}） ／ 悪魔 Lv${fmtLv(pDLv)}（遅${pc.late}）</span>`;
-  } else {
-    $("partnerBox").textContent = "相方はまだ登録されていません。";
-  }
+  const roleLabel = (acc) =>
+    saintKeeper && acc.id === saintKeeper.id
+      ? "🪷 仏の使い手 — 約束を守って仏を育てる"
+      : "😈 悪魔の使い手 — 遅刻して悪魔を育てる";
+  const myAcc = accounts.find((a) => a.id === me.id);
+  $("partnerBox").innerHTML =
+    (myAcc ? `<b>あなた（${esc(myAcc.name)}）</b>: ${roleLabel(myAcc)}<br>` : "") +
+    (partner ? `<b>${esc(partner.name)}</b>: ${roleLabel(partner)}` : "相方はまだ登録されていません。");
 
   // 因果帳（新しい順・直近30件）
   const hist = $("historyList");
@@ -812,8 +842,8 @@ function renderApp() {
     b.type = "button";
     b.className = "btn-big btn-ticket";
     const desc = tk.kind === "penalty"
-      ? `${nameOf(tk.payerId)} の遅刻ペナルティ(悪魔Lv+${tk.lv})`
-      : `聖人Lv+${tk.lv}のごほうび`;
+      ? `悪魔がLv+${tk.lv}に成長したごほうび`
+      : `仏がLv+${tk.lv}に成長したごほうび`;
     const armedNow = ticketArmed.key === tk.key && Date.now() < ticketArmed.until;
     b.innerHTML = armedNow
       ? `🎫 相手に見せて、もう一度タップで使う<small>${esc(tk.label)}</small>`
@@ -856,8 +886,8 @@ function renderApp() {
       li.className = "ticket " + (tk.kind === "penalty" ? "t-late" : "t-kept");
       const ownerName = tk.ownerId ? nameOf(tk.ownerId) : "(相手未登録)";
       const desc = tk.kind === "penalty"
-        ? `${esc(nameOf(tk.payerId))} の悪魔Lv+${tk.lv} → ${esc(ownerName)} の券`
-        : `${esc(ownerName)} の聖人Lv+${tk.lv}のごほうび`;
+        ? `悪魔Lv+${tk.lv} → ${esc(ownerName)}（悪魔の使い手）の券`
+        : `仏Lv+${tk.lv} → ${esc(ownerName)}（仏の使い手）の券`;
       li.innerHTML =
         `<div class="t-main"><span class="t-label">🎫 ${esc(tk.label)}</span>` +
         `<span class="t-desc">${desc}</span></div>`;
@@ -880,8 +910,8 @@ function renderApp() {
       showTicketFanfare({
         label: newTk.label,
         desc: newTk.kind === "penalty"
-          ? `${nameOf(newTk.payerId)} の遅刻ペナルティ。相手のレベルが下がると手放す`
-          : `聖人Lv+${newTk.lv}のごほうび。レベルが下がると手放す`,
+          ? `悪魔がLv+${newTk.lv}へ成長したごほうび。レベルが下がると手放す`
+          : `仏がLv+${newTk.lv}へ成長したごほうび。レベルが下がると手放す`,
       });
     }
   }
