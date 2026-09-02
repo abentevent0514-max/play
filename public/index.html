@@ -697,6 +697,7 @@ function computeTickets() {
 }
 
 let ticketArmed = { key: null, until: 0 };
+let ticketSeen = { id: null, keys: null }; // 券入手演出用。セッション内で見た手持ち(ログイン直後は演出しない)
 async function markTicketUsed(key) {
   // (旧UIの互換)
   try { await api("useticket", { key }); refresh(); } catch (e) {}
@@ -827,14 +828,13 @@ function renderApp() {
     }
   }
 
-  // 券入手の演出(自分宛て・増えたときのみ)
+  // 券入手の演出: この画面を見ている間に実際に増えたときだけ。ログイン直後は鳴らさない
   const myKeys = myTickets.map((tk) => tk.key);
-  const cKey = "karmacho.claim." + me.id;
-  const prevSig = localStorage.getItem(cKey);
-  const prevKeys = prevSig ? prevSig.split(",").filter(Boolean) : [];
-  localStorage.setItem(cKey, myKeys.join(","));
-  if (prevSig !== null) {
-    const newTk = myTickets.filter((tk) => !prevKeys.includes(tk.key)).sort((a, b) => a.lv - b.lv).pop();
+  if (ticketSeen.id !== me.id || ticketSeen.keys === null) {
+    ticketSeen = { id: me.id, keys: myKeys };
+  } else {
+    const newTk = myTickets.filter((tk) => !ticketSeen.keys.includes(tk.key)).sort((a, b) => a.lv - b.lv).pop();
+    ticketSeen.keys = myKeys;
     if (newTk) {
       showTicketFanfare({
         label: newTk.label,
