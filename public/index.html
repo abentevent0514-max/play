@@ -67,6 +67,13 @@
   }
   .gate h2{font-family:var(--serif);font-weight:600;letter-spacing:.15em;margin:0 0 6px;font-size:20px}
   .gate p{color:var(--text-dim);font-size:13px;margin:0 0 22px}
+  .roster{margin:0 0 18px}
+  .roster-cap{color:var(--text-dim);font-size:12px;margin:0 0 8px}
+  .roster-acc{display:flex;align-items:center;gap:10px;width:100%;margin:0 0 8px;padding:12px 14px;
+    background:rgba(217,164,65,.08);border:1px solid rgba(217,164,65,.4);border-radius:10px;
+    color:var(--text);font-size:15px;cursor:pointer;text-align:left}
+  .roster-acc small{color:var(--text-dim);margin-left:auto;font-size:11px}
+  .roster-acc:active{transform:scale(.98)}
   .gate .roster{font-size:13px;color:var(--text-dim);margin:0 0 18px}
   .gate .roster b{color:var(--gold-soft);font-weight:600}
   .gate form{display:flex;gap:8px}
@@ -343,10 +350,10 @@
   <!-- ログイン / 登録 -->
   <div class="gate hidden" id="gate">
     <h2>入 帳</h2>
-    <p>初めての方は名前を入力すると登録されます。<br>2回目からは同じ名前でログインできます。</p>
-    <p class="roster" id="roster"></p>
+    <p>登録済みの人は下の自分の名前をタップしてログイン。<br>新しく始める人は名前を入力して登録してください。</p>
+    <div class="roster" id="roster"></div>
     <form id="gateForm">
-      <input id="gateName" maxlength="16" placeholder="あなたの名前" autocomplete="off" aria-label="アカウント名">
+      <input id="gateName" maxlength="16" placeholder="新しい名前で登録" autocomplete="off" aria-label="アカウント名">
       <button type="submit">入る</button>
     </form>
     <p class="err" id="gateErr"></p>
@@ -607,12 +614,23 @@ function showScreen() {
 function renderRoster() {
   const el = $("roster");
   if (!el) return;
+  el.innerHTML = "";
   if (accounts.length === 0) {
-    el.textContent = "まだ誰も登録されていません。";
-  } else {
-    el.innerHTML = "登録済み: " + accounts.map((a) => `<b>${esc(a.name)}</b>`).join(" ・ ") +
-      (accounts.length >= 2 ? "（定員に達しています）" : "");
+    el.textContent = "まだ誰も登録されていません。最初に登録した人が🪷仏の使い手になります。";
+    return;
   }
+  const cap = document.createElement("div");
+  cap.className = "roster-cap";
+  cap.textContent = "登録済みのアカウント（タップでログイン）:";
+  el.appendChild(cap);
+  accounts.forEach((a, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "roster-acc";
+    b.innerHTML = `${i === 0 ? "🪷" : "😈"} <b>${esc(a.name)}</b><small>${i === 0 ? "仏の使い手" : "悪魔の使い手"}</small>`;
+    b.addEventListener("click", () => login(a));
+    el.appendChild(b);
+  });
 }
 
 $("gateForm").addEventListener("submit", async (e) => {
