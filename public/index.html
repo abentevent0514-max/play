@@ -570,11 +570,12 @@ async function refresh() {
     if (!online) $("offline").classList.remove("hidden");
   }
 }
-{
+try {
   const saved = localStorage.getItem(LS_ACC);
   if (saved) { try { me = JSON.parse(saved); } catch { me = null; } }
-}
-showScreen();
+} catch (e) {} // ストレージ不可の環境でも起動は続行
+// 初期表示はスクリプト全体の評価が終わってから(後方で宣言される変数に触るため)
+setTimeout(showScreen, 0);
 refresh();
 setInterval(refresh, 4000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
