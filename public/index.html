@@ -413,6 +413,10 @@
         相方が未登録の間はひとりモード: 守ると仏が育ち、遅刻すると悪魔が育つ(券も1人で両方獲得)。
       </p>
       <ul id="ticketList"></ul>
+      <div class="history" style="margin-top:20px">
+        <h3>消 化 履 歴</h3>
+        <ul id="usedList"></ul>
+      </div>
     </div>
 
     <div class="history">
@@ -932,6 +936,28 @@ function renderApp() {
       mk.textContent = tk.ownerId === me.id ? "あなたの券" : "相手の券";
       li.appendChild(mk);
       tl.appendChild(li);
+    }
+  }
+
+  // チケット消化履歴(新しい順・直近20件)
+  const usedUl = $("usedList");
+  usedUl.innerHTML = "";
+  const usedHist = requests
+    .filter((r) => r.type === "settle" && r.status === "approved")
+    .map((r) => ({ at: r.decidedAt || r.createdAt || 0, by: nameOf(r.from), label: r.label || "", side: r.side, lv: r.lv | 0 }))
+    .concat(settledList.map((s0) => ({ at: s0.at || 0, by: nameOf(s0.owner), label: s0.label || "", side: s0.side, lv: s0.lv | 0 })))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 20);
+  if (usedHist.length === 0) {
+    usedUl.innerHTML = '<li class="t-empty">まだ使った券はない。</li>';
+  } else {
+    for (const u of usedHist) {
+      const li = document.createElement("li");
+      li.innerHTML =
+        `<time>${fmtTime(u.at)}</time>` +
+        `<span class="${u.side === "devil" ? "h-late" : "h-kept"}">🎫 ${esc(u.by)} が「${esc(u.label)}」を使用` +
+        `（${u.side === "devil" ? "悪魔" : "仏"}Lv+${u.lv}） — 双方リセット</span>`;
+      usedUl.appendChild(li);
     }
   }
 
