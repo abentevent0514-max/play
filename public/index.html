@@ -585,6 +585,16 @@ async function refresh() {
     usedTicketKeys = new Set(d.usedTickets || []);
     resetTimes = (d.resets || []).slice().sort((a, b) => a - b);
     settledList = d.settled || [];
+    // 保存ログインの検証: 登録簿に存在しない/名前が違うアカウントなら自動ログアウト
+    // (データ消去→登録し直し後に、古い端末が別人として記録してしまう事故を防ぐ)
+    if (me && accounts.length) {
+      const mine = accounts.find((a) => a.id === me.id && a.name === me.name);
+      if (!mine) {
+        me = null;
+        try { localStorage.removeItem(LS_ACC); } catch (e) {}
+        showScreen();
+      }
+    }
     if (!online) { online = true; $("offline").classList.add("hidden"); }
     renderRoster();
     renderApp();
